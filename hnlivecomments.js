@@ -213,9 +213,9 @@
             return buildEntry(id, 0, user, comment, time);
         };
 
-        var scrapeTables = function() {
+        var scrapeTables = function(outerTable) {
             // Find the containing table by looking for s.gif on the page.
-            var spacerImages = $("img[src='s.gif']").slice(1, -1);
+            var spacerImages = outerTable.find("img[src='s.gif']").slice(1, -1);
 
             var items = [];
 
@@ -238,7 +238,7 @@
         var outerTable;
         if (frameworkTables.length > 1) {
             outerTable = $(frameworkTables[1]);
-            comments = scrapeTables();
+            comments = scrapeTables(outerTable);
         } else {
             var td = $(frameworkTables[0]).closest("td");
             var outerTable = $("<table border=\"0\"></table>");
@@ -271,7 +271,17 @@
                     elem.className += " added";
                 }
             };
+            var refreshHolder = null;
             this.insertItems = function(needRefresh, items) {
+                if (needRefresh) {
+                    refreshHolder = $("<div>");
+                    refreshHolder.load("/item?id=" + id + " table:first", function() {
+                        // $(document.body).append(refreshHolder);
+                        var frameworkTables = refreshHolder.find("table > tbody > tr:nth-child(3) > td > table");
+                        console.log(refreshHolder);
+                    });
+                }
+
                 var viewModel = this;
                 $.each(items, function() {
                     var item = this;
@@ -355,9 +365,11 @@
 
         window["hnlivecomments-enable-debug"] = function() {
             viewModel.debugMode(true);
+            window.ext$ = $;
         };
         window["hnlivecomments-disable-debug"] = function() {
             viewModel.debugMode(false);
+            delete window.ext$;
         };
     };
 

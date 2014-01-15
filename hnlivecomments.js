@@ -213,9 +213,9 @@
             return buildEntry(id, 0, user, comment, time);
         };
 
-        var scrapeTables = function(outerTable) {
+        var scrapeTables = function(scope) {
             // Find the containing table by looking for s.gif on the page.
-            var spacerImages = outerTable.find("img[src='s.gif']").slice(1, -1);
+            var spacerImages = scope.find("img[src='s.gif']").slice(1, -1);
 
             var items = [];
 
@@ -234,20 +234,17 @@
 
         var frameworkTables = $("body > center > table > tbody > tr:nth-child(3) > td > table");
 
-        var comments;
         var outerTable;
         if (frameworkTables.length > 1) {
             outerTable = $(frameworkTables[1]);
-            comments = scrapeTables(outerTable);
+            outerTable.empty();
         } else {
             var td = $(frameworkTables[0]).closest("td");
             var outerTable = $("<table border=\"0\"></table>");
             td.append(outerTable);
             td.append("<br><br>")
-            comments = [];
         }
 
-        outerTable.find("tbody").remove();
         var tBody = $("<tbody>");
         tBody.attr("data-bind", "template: { name: 'comment-template' }");
         outerTable.append(tBody);
@@ -261,9 +258,9 @@
             }
         });
 
-        var ViewModel = function(id, comments) {
+        var ViewModel = function(id) {
             this.id = id;
-            this.comments = ko.observableArray(comments);
+            this.comments = ko.observableArray();
             this.slideInCommentItems = function(elem) {
                 if (elem.nodeType == 1) {
                     var height = elem.clientHeight;
@@ -272,29 +269,53 @@
                 }
             };
             var refreshHolder = null;
-            this.insertItems = function(needRefresh, items) {
-                if (needRefresh) {
-                    refreshHolder = $("<div>");
-                    refreshHolder.load("/item?id=" + id + " table:first", function() {
-                        // $(document.body).append(refreshHolder);
-                        var frameworkTables = refreshHolder.find("table > tbody > tr:nth-child(3) > td > table");
-                        console.log(refreshHolder);
-                    });
-                }
-
-                var viewModel = this;
-                $.each(items, function() {
-                    var item = this;
-                    var index = 0;
-                    $.each(viewModel.comments(), function(i) {
-                        if (this.id == item.parentId) {
-                            index = i + 1;
-                            item.indent = this.indent + 1;
-                            return false;
+            var queue = [];
+            this.addQueuedItems = function() {
+                if (refreshHolder == null) {
+                    var viewModel = this;
+                    $.each(queue, function() {
+                        var item = this;
+                        var index = 0;
+                        var skip = false;
+                        $.each(viewModel.comments(), function(i) {
+                            // Skip item if already in comments
+                            if (this.id == item.id) {
+                                skip = true;
+                                return false;
+                            }
+                            // Move to appropriate position and indentation
+                            // if we found the parent.
+                            if (this.id == item.parentId) {
+                                index = i + 1;
+                                item.indent = this.indent + 1;
+                            }
+                        });
+                        if (!skip) {
+                            viewModel.comments.splice(index, 0, item);
                         }
                     });
-                    viewModel.comments.splice(index, 0, item);
+                    queue = [];
+                }
+            };
+            this.insertItems = function(needRefresh, items) {
+                if (needRefresh) {
+                    var viewModel = this;
+                    this.comments.removeAll();
+                    refreshHolder = $("<div>");
+                    refreshHolder.load("/item?id=" + id + " table:first", function() {
+                        var comments = scrapeTables(refreshHolder);
+                        $.each(comments, function() {
+                            viewModel.comments.push(this);
+                        });
+                        refreshHolder = null;
+                        viewModel.addQueuedItems();
+                    });
+                }
+                // Enqueue each item
+                $.each(items, function() {
+                    queue.push(this);
                 });
+                this.addQueuedItems();
             };
 
             this.realtime = ko.observable(false);
@@ -305,14 +326,13 @@
             };
 
             this.refresh = function() {
-                // This is juicy.  What we have to do is
-                // use ajax to get a new copy of the current page, and
-                // then scrape that.
-
+                lastCursor = null;
+                this.realtime(false);
+                this.realtime(true);
             };
         };
 
-        var viewModel = new ViewModel(id, comments);
+        var viewModel = new ViewModel(id);
 
         ko.applyBindings(viewModel);
 
@@ -331,7 +351,7 @@
 
             var comments = $.map(result.items, function(item) {
                 return buildEntry(
-                    item['article-id'],
+                    item['id'],
                     item['parent-id'],
                     item['author'],
                     item['body'],

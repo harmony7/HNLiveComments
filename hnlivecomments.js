@@ -1,23 +1,42 @@
 (function(window) {
 
-    var stringBeginsWith = function(str, compare) {
-        var length = compare.length;
-        return str.substring(0, length) == compare;
+    // -- Utility functions --
+
+    // Convert a time span string (useful only on Hacker News!)
+    var readTimeSpan = function(str) {
+        // split time span string into number and unit
+        var number = 0;
+        if (str != null) {
+            number = parseInt(str.toLowerCase().trim(), 10);
+            if (str.indexOf("minute") >= 0) {
+                number = number * 1000 * 60;
+            } else if (str.indexOf("hour") >= 0) {
+                number = number * 1000 * 60 * 60;
+            } else if (str.indexOf("day") >= 0) {
+                number = number * 1000 * 60 * 60 * 24;
+            }
+        }
+        return new Date(new Date().getTime() - number);
     };
 
-    if (!stringBeginsWith(location.href, "https://news.ycombinator.com/item?id=")) {
-        alert("This bookmarklet should be invoked only on individual article pages on Hacker News.");
-        return;
-    }
+    // Convert a number of milliseconds into time span string (Hacker News style)
+    var formatTimeSpan = function(ticks) {
+        var minutes = Math.floor(ticks / (60 * 1000));
+        if(minutes < 60) {
+            if (minutes < 1) {
+                minutes = 1;
+            }
+            return minutes + " minute" + (minutes != 1 ? "s" : "") + " ago";
+        }
+        var hours = Math.floor(minutes / 60);
+        if(hours < 24) {
+            return hours + " hour" + (hours != 1 ? "s" : "") + " ago";
+        }
+        var days = Math.floor(hours / 24);
+        return days + " day" + (days != 1 ? "s" : "") + " ago";
+    };
 
-    if (window["E608C736-2041-47A9-A2A5-591114F4123B"]) {
-        console.log("prevent double-loading");
-        return;
-    }
-    window["E608C736-2041-47A9-A2A5-591114F4123B"] = true;
-
-    var appRoot = window['AC37E99A-3A9A-44EF-A901-20285DEB1ECE'];
-
+    // Load a script file, and then call the next callback function
     var loadScriptWithCallback = function (url, callback) {
         var script = document.createElement('script');
         script.async = true;
@@ -39,15 +58,54 @@
         }
     };
 
+    // Load any number of scripts sequentially and then call the
+    // next callback function
+    var loadScriptsWithCallback = function(scripts, callback) {
+        // Make a local clone of scripts array.
+        if (scripts.length == 0) {
+            callback();
+        } else {
+            var list = scripts.slice(0);
+            var script = list.shift();
+            loadScriptWithCallback(script, function() {
+                loadScriptsWithCallback(list, callback);
+            });
+        }
+    };
+
+    // Returns a boolean value indicating whether one string
+    // begins with the characters of another string.
+    var stringBeginsWith = function(str, compare) {
+        var length = compare.length;
+        return str.substring(0, length) == compare;
+    };
+
+    // Begin
+
+    var currentPageHref = location.href;
+
+    if (!stringBeginsWith(currentPageHref, "https://news.ycombinator.com/item?id=")) {
+        alert("This bookmarklet should be invoked only on individual article pages on Hacker News.");
+        return;
+    }
+
+    if (window["E608C736-2041-47A9-A2A5-591114F4123B"]) {
+        console.log("Double-loading prevented.");
+        return;
+    }
+    window["E608C736-2041-47A9-A2A5-591114F4123B"] = true;
+
+    var appRoot = window['AC37E99A-3A9A-44EF-A901-20285DEB1ECE'];
+
     // Ugly nested JavaScript loading, but after we get all this out of the way we can call our main method below.
     loadScriptWithCallback("http://code.jquery.com/jquery-1.10.1.min.js", function() {
         var $ = jQuery.noConflict(true);
-        loadScriptWithCallback(appRoot + "knockout-3.0.0.js", function() {
-            loadScriptWithCallback(appRoot + "json2.js", function() {
-                loadScriptWithCallback(appRoot + "pollymer.js", function() {
-                    main($, ko, Pollymer);
-                });
-            });
+        loadScriptsWithCallback([
+            appRoot + "knockout-3.0.0.js",
+            appRoot + "json2.js",
+            appRoot + "pollymer.js"
+        ], function() {
+            main($, ko, Pollymer);
         });
     });
 
@@ -98,41 +156,12 @@
         $(document.body).append(styleSheet);
         $(document.body).append(template);
 
-        var readTimeSpan = function(str) {
-            // split timespan into number and unit
-            str = str != null ? str.toLowerCase().trim() : "0 minutes";
-            var number = parseInt(str, 10);
-            if (str.indexOf("minute") >= 0) {
-                number = number * 1000 * 60;
-            } else if (str.indexOf("hour") >= 0) {
-                number = number * 1000 * 60 * 60;
-            } else if (str.indexOf("day") >= 0) {
-                number = number * 1000 * 60 * 60 * 24;
-            }
-            return new Date(new Date().getTime() - number);
-        };
-
-        var formatTimeSpan = function(ticks) {
-            var minutes = Math.floor(ticks / (60 * 1000));
-            if(minutes < 60) {
-                if (minutes < 1) {
-                    minutes = 1;
-                }
-                return minutes + " minute" + (minutes != 1 ? "s" : "") + " ago";
-            }
-            var hours = Math.floor(minutes / 60);
-            if(hours < 24) {
-                return hours + " hour" + (hours != 1 ? "s" : "") + " ago";
-            }
-            var days = Math.floor(hours / 24);
-            return days + " day" + (days != 1 ? "s" : "") + " ago";
-        };
-
         var now = ko.observable(new Date());
 
-        var buildEntry = function(id, user, comment, time) {
+        var buildEntry = function(id, parentId, user, comment, time) {
             var obj = {
                 id: id,
+                parentId: parentId,
                 user: user,
                 comment: comment,
                 time: ko.observable(time),
@@ -181,7 +210,7 @@
             var comment = $(tableElement).find("span.comment").html();
 
             var time = readTimeSpan(dateString);
-            return buildEntry(id, user, comment, time);
+            return buildEntry(id, 0, user, comment, time);
         };
 
         var scrapeTables = function() {
@@ -242,20 +271,19 @@
                     elem.className += " added";
                 }
             };
-            this.insertItems = function(items) {
+            this.insertItems = function(needRefresh, items) {
                 var viewModel = this;
                 $.each(items, function() {
                     var item = this;
-                    var converted = convertItem(item);
                     var index = 0;
                     $.each(viewModel.comments(), function(i) {
-                        if (this.id == item['parent-id']) {
+                        if (this.id == item.parentId) {
                             index = i + 1;
-                            converted.indent = this.indent + 1;
+                            item.indent = this.indent + 1;
                             return false;
                         }
                     });
-                    viewModel.comments.splice(index, 0, converted);
+                    viewModel.comments.splice(index, 0, item);
                 });
             };
 
@@ -288,16 +316,20 @@
                 req.retry();
                 return;
             }
-            if (lastCursor == null) {
-                viewModel.refresh();
-            }
+            var needRefresh = lastCursor == null;
             lastCursor = result.last_cursor;
 
-            var comments = $.map(result.items, function() {
-                return buildEntry(this['article-id'], this['author'], this['body'], readTimeSpan(this['date-string']))
+            var comments = $.map(result.items, function(item) {
+                return buildEntry(
+                    item['article-id'],
+                    item['parent-id'],
+                    item['author'],
+                    item['body'],
+                    readTimeSpan(item['date-string'])
+                );
             });
 
-            viewModel.insertItems(comments);
+            viewModel.insertItems(needRefresh, comments);
 
             now(new Date());
         });

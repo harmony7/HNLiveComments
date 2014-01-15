@@ -54,13 +54,23 @@
     // This is finally called at the end of the chain of loading various JavaScript files
     var main = function($, ko, Pollymer) {
 
-        var styleSheet = "<style>" +
-            ".comment-item {" +
-            "-moz-transition: height 1s, opacity 1s; -webkit-transition: height 1s, opacity 1s; transition: height 1s, opacity 1s;" +
-            "}" +
-            ".comment-item.added {" +
-            "height: 0;" +
-            "}" +
+        var testButtonHtml =
+            "<div>" +
+                "<button data-bind=\"text: realtime() ? 'Realtime: ON' : 'Realtime: OFF', click: switchRealtime\"></button>" +
+                "<button data-bind=\"visible: debugMode\">Add Test Item (Top)</button>" +
+                "<button data-bind=\"visible: debugMode\">Add Test Item (Random)</button>" +
+            "</div>";
+
+        $(document.body).append(testButtonHtml);
+
+        var styleSheet =
+            "<style>" +
+                ".comment-item {" +
+                "-moz-transition: height 1s, opacity 1s; -webkit-transition: height 1s, opacity 1s; transition: height 1s, opacity 1s;" +
+                "}" +
+                ".comment-item.added {" +
+                "height: 0;" +
+                "}" +
             "</style>";
 
         var template =
@@ -194,17 +204,17 @@
 
         var frameworkTables = $("body > center > table > tbody > tr:nth-child(3) > td > table");
 
-        var items;
+        var comments;
         var outerTable;
         if (frameworkTables.length > 1) {
             outerTable = $(frameworkTables[1]);
-            items = scrapeTables();
+            comments = scrapeTables();
         } else {
             var td = $(frameworkTables[0]).closest("td");
             var outerTable = $("<table border=\"0\"></table>");
             td.append(outerTable);
             td.append("<br><br>")
-            items = [];
+            comments = [];
         }
 
         outerTable.find("tbody").remove();
@@ -225,17 +235,17 @@
             return buildEntry(i['article-id'], i['author'], i['body'], readTimeSpan(i['date-string']));
         };
 
-        var viewModel = {
-            id: id,
-            comments: ko.observableArray(items),
-            slideInCommentItems: function(elem) {
+        var ViewModel = function(id, comments) {
+            this.id = id;
+            this.comments = ko.observableArray(comments);
+            this.slideInCommentItems = function(elem) {
                 if (elem.nodeType == 1) {
                     var height = elem.clientHeight;
                     $(elem).data("fullPixelHeight", height);
                     elem.className += " added";
                 }
-            },
-            insertItems: function(items) {
+            };
+            this.insertItems = function(items) {
                 var viewModel = this;
                 $.each(items, function() {
                     var item = this;
@@ -250,8 +260,17 @@
                     });
                     viewModel.comments.splice(index, 0, converted);
                 });
-            }
+            };
+
+            this.realtime = ko.observable(false);
+            this.debugMode = ko.observable(false);
+
+            this.switchRealtime = function() {
+                this.realtime(!this.realtime());
+            };
         };
+
+        var viewModel = new ViewModel(id, comments);
 
         ko.applyBindings(viewModel);
 
@@ -259,6 +278,9 @@
         var req = new Pollymer.Request();
         req.on('finished', function(code, result) {
             if (code == 404) {
+                // If 404, then we have a bad last cursor.  We clear the last cursor
+                // and start again as though this were the first call.
+                lastCursor = null;
                 req.retry();
                 return;
             }
@@ -269,10 +291,23 @@
         });
         req.maxTries = -1;
         req.recurring = true;
-        req.start('GET', function() {
-            var baseUri = 'http://api.hnstream.com';
-            return baseUri + '/news/' + id + '/comments/items/?since=cursor%3A' + (lastCursor != null ? lastCursor : "");
+
+        // Bind a handler to when we start or stop realtime
+        viewModel.realtime.subscribe(function(value) {
+            if (value) {
+                // Switching on realtime
+                req.start('GET', function() {
+                    var baseUri = 'http://api.hnstream.com';
+                    return baseUri + '/news/' + id + '/comments/items/?since=cursor%3A' + (lastCursor != null ? lastCursor : "");
+                });
+            } else {
+                // Switching off realtime
+                req.abort();
+            }
         });
+
+        // Set realtime on
+        viewModel.realtime(true);
     };
 
 })(window);

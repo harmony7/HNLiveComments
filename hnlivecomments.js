@@ -119,8 +119,8 @@
                 "</td><td style=\"text-align:right\">" +
                 "<button data-bind=\"text: realtime() ? 'Realtime: ON' : 'Realtime: OFF', click: switchRealtime\"></button>" +
                 "<button data-bind=\"click: refresh\">Refresh comments</button>" +
-                "<button data-bind=\"visible: debugMode\" data-bind=\"click: addTestTop\">Add Test Item (Top)</button>" +
-                "<button data-bind=\"visible: debugMode\" data-bind=\"click: addTestRandom\">Add Test Item (Random)</button>" +
+                "<button data-bind=\"visible: debugMode, click: addTestTop\">Add Test Item (Top)</button>" +
+                "<button data-bind=\"visible: debugMode, click: addTestRandom\">Add Test Item (Random)</button>" +
                 "</td></tr></table>" +
             "</div>"
         );

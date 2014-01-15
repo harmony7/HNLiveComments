@@ -54,14 +54,15 @@
     // This is finally called at the end of the chain of loading various JavaScript files
     var main = function($, ko, Pollymer) {
 
-        var testButtonHtml =
-            "<div>" +
+        var testButtonsHtml =
+            "<div data-bind=\"visible: debugMode\">" +
                 "<button data-bind=\"text: realtime() ? 'Realtime: ON' : 'Realtime: OFF', click: switchRealtime\"></button>" +
-                "<button data-bind=\"visible: debugMode\">Add Test Item (Top)</button>" +
-                "<button data-bind=\"visible: debugMode\">Add Test Item (Random)</button>" +
+                "<button data-bind=\"click: refresh\">Refresh comments</button>" +
+                "<button>Add Test Item (Top)</button>" +
+                "<button>Add Test Item (Random)</button>" +
             "</div>";
 
-        $(document.body).append(testButtonHtml);
+        $(document.body).append(testButtonsHtml);
 
         var styleSheet =
             "<style>" +
@@ -165,8 +166,8 @@
             var dateElements = $(tableElement).find(".comhead").contents().filter(function() {
                 return this.nodeType == 3;
             }).map(function() {
-                    return this.textContent;
-                });
+                return this.textContent;
+            });
 
             var dateString = dateElements.length >= 1 ? dateElements[0] : "1 minute";
 
@@ -231,10 +232,6 @@
             }
         });
 
-        var convertItem = function(i) {
-            return buildEntry(i['article-id'], i['author'], i['body'], readTimeSpan(i['date-string']));
-        };
-
         var ViewModel = function(id, comments) {
             this.id = id;
             this.comments = ko.observableArray(comments);
@@ -268,6 +265,13 @@
             this.switchRealtime = function() {
                 this.realtime(!this.realtime());
             };
+
+            this.refresh = function() {
+                // This is juicy.  What we have to do is
+                // use ajax to get a new copy of the current page, and
+                // then scrape that.
+
+            };
         };
 
         var viewModel = new ViewModel(id, comments);
@@ -284,9 +288,17 @@
                 req.retry();
                 return;
             }
+            if (lastCursor == null) {
+                viewModel.refresh();
+            }
             lastCursor = result.last_cursor;
 
-            viewModel.insertItems(result.items);
+            var comments = $.map(result.items, function() {
+                return buildEntry(this['article-id'], this['author'], this['body'], readTimeSpan(this['date-string']))
+            });
+
+            viewModel.insertItems(comments);
+
             now(new Date());
         });
         req.maxTries = -1;
@@ -308,6 +320,13 @@
 
         // Set realtime on
         viewModel.realtime(true);
+
+        window["hnlivecomments-enable-debug"] = function() {
+            viewModel.debugMode(true);
+        };
+        window["hnlivecomments-disable-debug"] = function() {
+            viewModel.debugMode(false);
+        };
     };
 
 })(window);

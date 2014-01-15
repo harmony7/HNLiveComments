@@ -112,15 +112,20 @@
     // This is finally called at the end of the chain of loading various JavaScript files
     var main = function($, ko, Pollymer) {
 
-        var testButtonsHtml =
-            "<div data-bind=\"visible: debugMode\">" +
+        var hnLiveCommentsInfoBar = $(
+            "<div class=\"hnLiveCommentsInfoBar\">" +
+                "<table width=\"85%\"><tr><td>" +
+                "Hacker News Live Comments Bookmarklet" +
+                "</td><td style=\"text-align:right\">" +
                 "<button data-bind=\"text: realtime() ? 'Realtime: ON' : 'Realtime: OFF', click: switchRealtime\"></button>" +
                 "<button data-bind=\"click: refresh\">Refresh comments</button>" +
-                "<button>Add Test Item (Top)</button>" +
-                "<button>Add Test Item (Random)</button>" +
-            "</div>";
+                "<button data-bind=\"visible: debugMode\" data-bind=\"click: addTestTop\">Add Test Item (Top)</button>" +
+                "<button data-bind=\"visible: debugMode\" data-bind=\"click: addTestRandom\">Add Test Item (Random)</button>" +
+                "</td></tr></table>" +
+            "</div>"
+        );
 
-        $(document.body).append(testButtonsHtml);
+        $(document.body).append(hnLiveCommentsInfoBar);
 
         var styleSheet =
             "<style>" +
@@ -129,6 +134,21 @@
                 "}" +
                 ".comment-item.added {" +
                 "height: 0;" +
+                "}" +
+                ".hnLiveCommentsInfoBar {" +
+                "background-color: #54B0DF;" +
+                "position: fixed;" +
+                "top: 0;" +
+                "left: 0;" +
+                "width: 100%;" +
+                "}" +
+                ".hnLiveCommentsInfoBar > table {" +
+                "margin: auto;" +
+                "}" +
+                ".hnLiveCommentsInfoBar > table > tbody > tr > td {" +
+                "color: black;" +
+                "padding: 2px 8px;" +
+                "font: bold 10pt Verdana;" +
                 "}" +
             "</style>";
 
@@ -330,11 +350,62 @@
                 this.realtime(false);
                 this.realtime(true);
             };
+
+            this.addTestEntry = function(fn) {
+                var entry = buildEntry(
+                    new Date().getTime(),
+                    0,
+                    "test-author",
+                    "<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ut egestas tortor. " +
+                    "Quisque fringilla leo vel quam dictum fringilla. Nullam adipiscing elit eget nulla pharetra aliquam. " +
+                    "Proin malesuada volutpat arcu, quis tincidunt neque volutpat at. Nunc dignissim elit at placerat tristique. " +
+                    "Nullam quis aliquam justo. Mauris dictum molestie tortor sed tempus. Nulla ut turpis nisl. " +
+                    "Maecenas tincidunt, mauris at cursus vulputate, ipsum sapien venenatis sem, vel vulputate mi mauris vel massa.</p>" +
+
+                    "<p>Cras iaculis hendrerit justo eget gravida. Aliquam faucibus felis aliquet felis eleifend, " +
+                    "eu aliquam arcu adipiscing. Vestibulum vulputate, magna et eleifend viverra, ante lorem eleifend ligula, " +
+                    "sit amet hendrerit diam justo dignissim elit. Vestibulum porttitor, sem eu pellentesque ornare, augue eros " +
+                    "consectetur neque, dictum consectetur urna ipsum sit amet sem. Donec vehicula eget urna vitae iaculis. " +
+                    "Ut aliquam viverra dolor in accumsan. Morbi eu ultricies mi. Nunc eu tempus velit, a vehicula lorem.</p>" +
+
+                    "<p>Nullam in condimentum urna. Aenean consectetur, augue quis gravida blandit, erat leo auctor leo, eu " +
+                    "euismod eros arcu in libero. Aenean vitae ipsum pretium, vestibulum elit et, hendrerit lectus. In malesuada " +
+                    "viverra eleifend. Ut vel consectetur nunc, sed sodales ipsum. Mauris sed neque ut nunc blandit aliquam. " +
+                    "Curabitur in blandit augue, vel luctus lectus.</p>",
+
+                    new Date()
+                );
+                if (fn != null) {
+                    fn.call(entry);
+                }
+                this.insertItems(false, [entry]);
+            };
+
+            this.addTestTop = function() {
+                this.addTestEntry();
+            };
+
+            this.addTestRandom = function() {
+                var viewModel = this;
+                this.addTestEntry(function() {
+                    var comments = viewModel.comments();
+                    if (comments.length > 0) {
+                        var randomIndex = Math.floor(Math.random() * comments.length);
+                        var randomComment = comments[randomIndex];
+                        this.parentId = randomComment.id;
+                    }
+                });
+            };
         };
 
         var viewModel = new ViewModel(id);
 
         ko.applyBindings(viewModel);
+
+        // Move top down just a bit to allow room for info bar
+        $(document.body)
+            .css("padding-top", hnLiveCommentsInfoBar.height() + "px");
+
 
         var lastCursor = null;
         var req = new Pollymer.Request();

@@ -152,29 +152,7 @@
                 "}" +
             "</style>";
 
-        var template =
-            "<script type=\"text/html\" id=\"comment-template\">" +
-                "<!-- ko foreach: {data: comments, afterAdd: slideInCommentItems } -->" +
-                "<tr><td>" +
-                "<table class=\"comment-item\" border=\"0\"><tbody><tr>"+
-                "<td>" +
-                "<img src=\"s.gif\" height=\"1\" data-bind=\"attr: { width: indent * 40 }\"></td>" +
-                "<td valign=\"top\"><center>" +
-                "<a data-bind=\"attr: { id: 'up_' + id, href: 'vote?for=' + id + '&amp;dir=up' }\"><div class=\"votearrow\" title=\"upvote\"></div></a>" +
-                "<span data-bind=\"attr: { id: 'down_' + id }\"></span></center></td>" +
-                "<td class=\"default\"><div style=\"margin-top:2px; margin-bottom:-10px; \"><span class=\"comhead\">" +
-                "<a data-bind=\"text: user, attr: { href: 'user?id=' + user }\"></a> <span data-bind=\"text: ago\"></span> | " +
-                "<a data-bind=\"attr: { href: 'item?id=' + id }\">link</a></span></div>" +
-                "<br><span class=\"comment\" data-bind=\"html: comment\"></span>" +
-                "<p><font size=\"1\"><u><a data-bind=\"attr: { href: 'reply?id=' + id }\">reply</a></u></font></p>" +
-                "</td>" +
-                "</tr></tbody></table>" +
-                "</td></tr>" +
-                "<!-- /ko -->" +
-                "</script>";
-
         $(document.body).append(styleSheet);
-        $(document.body).append(template);
 
         var now = ko.observable(new Date());
 
@@ -257,7 +235,6 @@
         var outerTable;
         if (frameworkTables.length > 1) {
             outerTable = $(frameworkTables[1]);
-            outerTable.empty();
         } else {
             var td = $(frameworkTables[0]).closest("td");
             var outerTable = $("<table border=\"0\"></table>");
@@ -265,9 +242,32 @@
             td.append("<br><br>")
         }
 
-        var tBody = $("<tbody>");
-        tBody.attr("data-bind", "template: { name: 'comment-template' }");
-        outerTable.append(tBody);
+        $(
+            "<table><tbody>" +
+                "<!-- ko foreach: {data: comments, afterAdd: slideInCommentItems } -->" +
+                "<tr><td>" +
+                "<table class=\"comment-item\" border=\"0\"><tbody><tr>"+
+                "<td>" +
+                "<img src=\"s.gif\" height=\"1\" data-bind=\"attr: { width: indent * 40 }\"></td>" +
+                "<td valign=\"top\"><center>" +
+                "<a data-bind=\"attr: { id: 'up_' + id, href: 'vote?for=' + id + '&amp;dir=up' }\"><div class=\"votearrow\" title=\"upvote\"></div></a>" +
+                "<span data-bind=\"attr: { id: 'down_' + id }\"></span></center></td>" +
+                "<td class=\"default\"><div style=\"margin-top:2px; margin-bottom:-10px; \"><span class=\"comhead\">" +
+                "<a data-bind=\"text: user, attr: { href: 'user?id=' + user }\"></a> <span data-bind=\"text: ago\"></span> | " +
+                "<a data-bind=\"attr: { href: 'item?id=' + id }\">link</a></span></div>" +
+                "<br><span class=\"comment\" data-bind=\"html: comment\"></span>" +
+                "<p><font size=\"1\"><u><a data-bind=\"attr: { href: 'reply?id=' + id }\">reply</a></u></font></p>" +
+                "</td>" +
+                "</tr></tbody></table>" +
+                "</td></tr>" +
+                "<!-- /ko -->" +
+                "<tr data-bind=\"visible: isRefreshing\"><td>" +
+                "<div style=\"padding: 4px 30px;\"><img src=\"" + appRoot + "ajax-loader.gif\" /> Refreshing Comments...</div>" +
+                "</td></tr>" +
+            "</tbody></table>"
+        ).insertAfter(outerTable);
+
+        outerTable.remove();
 
         var id = 0;
         $(frameworkTables[0]).find("a").each(function(i, element) {
@@ -288,10 +288,16 @@
                     elem.className += " added";
                 }
             };
-            var refreshHolder = null;
+            var refreshHolder = ko.observable(null);
+            this.isRefreshing = ko.computed(function() {
+                return refreshHolder() != null;
+            });
+            this.isEmpty = ko.computed(function() {
+                return this.comments().length == 0 && refreshHolder() == null;
+            }, this);
             var queue = [];
             this.addQueuedItems = function() {
-                if (refreshHolder == null) {
+                if (refreshHolder() == null) {
                     var viewModel = this;
                     $.each(queue, function() {
                         var item = this;
@@ -321,13 +327,13 @@
                 if (needRefresh) {
                     var viewModel = this;
                     this.comments.removeAll();
-                    refreshHolder = $("<div>");
-                    refreshHolder.load("/item?id=" + id + " table:first", function() {
-                        var comments = scrapeTables(refreshHolder);
+                    refreshHolder($("<div>"));
+                    refreshHolder().load("/item?id=" + id + " table:first", function() {
+                        var comments = scrapeTables(refreshHolder());
                         $.each(comments, function() {
                             viewModel.comments.push(this);
                         });
-                        refreshHolder = null;
+                        refreshHolder(null);
                         viewModel.addQueuedItems();
                     });
                 }

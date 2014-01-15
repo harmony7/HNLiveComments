@@ -264,21 +264,29 @@
                 "<tr data-bind=\"visible: isRefreshing\"><td>" +
                 "<div style=\"padding: 4px 30px;\"><img src=\"" + appRoot + "ajax-loader.gif\" /> Refreshing Comments...</div>" +
                 "</td></tr>" +
+                "<tr data-bind=\"visible: initializing\"><td>" +
+                "<div style=\"padding: 4px 30px;\"><img src=\"" + appRoot + "ajax-loader.gif\" /> Initializing...</div>" +
+                "</td></tr>" +
             "</tbody></table>"
         ).insertAfter(outerTable);
 
         outerTable.remove();
 
-        var id = 0;
+        var numCommentsNode = null;
+
         $(frameworkTables[0]).find("a").each(function(i, element) {
             var href = $(element).attr("href");
             if (href.substring(0, 8) == "item?id=") {
-                id = href.substring(8);
+                numCommentsNode = $(element);
                 return false;
             }
         });
 
+        var id = numCommentsNode != null ? numCommentsNode.attr("href").substring(8) : null;
+        numCommentsNode.attr("data-bind", "text: numCommentsString");
+
         var ViewModel = function(id) {
+            this.initializing = ko.observable(true);
             this.id = id;
             this.comments = ko.observableArray();
             this.slideInCommentItems = function(elem) {
@@ -324,6 +332,7 @@
                 }
             };
             this.insertItems = function(needRefresh, items) {
+                this.initializing(false);
                 if (needRefresh) {
                     var viewModel = this;
                     this.comments.removeAll();
@@ -356,6 +365,16 @@
                 this.realtime(false);
                 this.realtime(true);
             };
+
+            this.numCommentsString = ko.computed(function() {
+                if (this.initializing()) {
+                    return "Initializing...";
+                }
+                if (this.isRefreshing()) {
+                    return "Refreshing...";
+                }
+                return this.comments().length + ' comments';
+            }, this);
 
             this.addTestEntry = function(fn) {
                 var entry = buildEntry(
@@ -412,7 +431,6 @@
         $(document.body)
             .css("padding-top", hnLiveCommentsInfoBar.height() + "px");
 
-
         var lastCursor = null;
         var req = new Pollymer.Request();
         req.on('finished', function(code, result) {
@@ -448,7 +466,7 @@
             if (value) {
                 // Switching on realtime
                 req.start('GET', function() {
-                    var baseUri = 'http://api.hnstream.com';
+                    var baseUri = '//api.hnstream.com';
                     return baseUri + '/news/' + id + '/comments/items/?since=cursor%3A' + (lastCursor != null ? lastCursor : "");
                 });
             } else {

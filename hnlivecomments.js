@@ -150,7 +150,7 @@
         var hnLiveCommentsInfoBar = $(
             "<div class=\"hnLiveCommentsInfoBar\">" +
                 "<table width=\"85%\"><tr><td>" +
-                "Hacker News Live Comments Bookmarklet (<a href=\"https://github.com/harmony7/HNLiveComments\">Github:harmony7/HNLiveComments</a>)" +
+                "Hacker News Live Comments Bookmarklet (<a href=\"https://github.com/harmony7/HNLiveComments\" target=\"_blank\">Github:harmony7/HNLiveComments</a>)" +
                 "</td><td style=\"text-align:right\">" +
                 "<button data-bind=\"text: realtime() ? 'Realtime: ON' : 'Realtime: OFF', click: switchRealtime\"></button>" +
                 "<button data-bind=\"visible: debugMode, click: refresh\">Refresh comments</button>" +

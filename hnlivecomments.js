@@ -58,33 +58,70 @@
         }
     };
 
-    // Load any number of scripts sequentially and then call the
-    // next callback function
-    var loadScriptsWithCallback = function(scripts, callback) {
-        // Make a local clone of scripts array.
-        if (scripts.length == 0) {
-            callback();
-        } else {
-            var list = scripts.slice(0);
-            var script = list.shift();
-            loadScriptWithCallback(script, function() {
-                loadScriptsWithCallback(list, callback);
-            });
+    // Load a script file and move the specified variables from the global
+    // scope to a property on a context object, then call the specified
+    // callback method and pass the context object to it.
+    var loadScriptAndAddToContext = function(script, varNames, callback) {
+        var ctx = {};
+        var tmpCtx = {};
+        for(var i = 0; i < varNames.length; i++) {
+            var varName = varNames[i];
+            if(varName in window) {
+                tmpCtx[varName] = window[varName];
+            }
         }
+        loadScriptWithCallback(script, function() {
+            for(var i = 0; i < varNames.length; i++) {
+                var varName = varNames[i];
+                if (varName in window) {
+                    ctx[varName] = window[varName];
+                }
+                if(varName in tmpCtx) {
+                    window[varName] = tmpCtx[varName];
+                } else {
+                    delete window[varName];
+                }
+            }
+            callback(ctx);
+        });
     };
 
-    // Returns a boolean value indicating whether one string
+    // Load a series of script files, extracting the specified variables from
+    // the global scope after each file is loaded, and then call the specified
+    // callback method passing in a context object that contains the extracted
+    // variables as properties.
+    var loadScriptsAndAddToContext = function(scriptAndVarNames, callback) {
+        var ctx = {};
+        var worker = function(ctx, scriptAndVarNames, callback) {
+            if (scriptAndVarNames.length == 0) {
+                callback(ctx);
+            } else {
+                var list = scriptAndVarNames.slice(0);
+                var scriptAndVars = list.shift();
+                var script = scriptAndVars.shift();
+                loadScriptAndAddToContext(script, scriptAndVars, function(context) {
+                    for (prop in context) {
+                        if (context.hasOwnProperty(prop)) {
+                            ctx[prop] = context[prop];
+                        }
+                    }
+                    worker(ctx, list, callback);
+                });
+            }
+        };
+        return worker(ctx, scriptAndVarNames, callback);
+    };
+
+    // Return a boolean value indicating whether one string
     // begins with the characters of another string.
     var stringBeginsWith = function(str, compare) {
         var length = compare.length;
         return str.substring(0, length) == compare;
     };
 
-    // Begin
+    // Pre-startup tasks
 
-    var currentPageHref = location.href;
-
-    if (!stringBeginsWith(currentPageHref, "https://news.ycombinator.com/item?id=")) {
+    if (!stringBeginsWith(location.href, "https://news.ycombinator.com/item?id=")) {
         alert("This bookmarklet should be invoked only on individual article pages on Hacker News.");
         return;
     }
@@ -97,19 +134,17 @@
 
     var appRoot = window['AC37E99A-3A9A-44EF-A901-20285DEB1ECE'];
 
-    // Ugly nested JavaScript loading, but after we get all this out of the way we can call our main method below.
-    loadScriptWithCallback("http://code.jquery.com/jquery-1.10.1.min.js", function() {
-        var $ = jQuery.noConflict(true);
-        loadScriptsWithCallback([
-            appRoot + "knockout-3.0.0.js",
-            appRoot + "json2.js",
-            appRoot + "pollymer.js"
-        ], function() {
-            main($, ko, Pollymer);
-        });
+    // Load various JavaScript files, and then jump to our main method below.
+    loadScriptsAndAddToContext([
+        [appRoot + "json2.js"],
+        ["http://code.jquery.com/jquery-1.10.1.min.js", "$"],
+        [appRoot + "knockout-3.0.0.js", "ko"],
+        [appRoot + "pollymer.js", "Pollymer"]
+    ], function(ctx) {
+        main(ctx.$, ctx.ko, ctx.Pollymer);
     });
 
-    // This is finally called at the end of the chain of loading various JavaScript files
+    // Main entry point
     var main = function($, ko, Pollymer) {
 
         var hnLiveCommentsInfoBar = $(

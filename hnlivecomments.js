@@ -137,7 +137,7 @@
     // Load various JavaScript files, and then jump to our main method below.
     loadScriptsAndAddToContext([
         [appRoot + "json2.js"],
-        ["http://code.jquery.com/jquery-1.10.1.min.js", "$"],
+        [appRoot + "jquery-1.10.2.min.js", "$"],
         [appRoot + "knockout-3.0.0.js", "ko"],
         [appRoot + "pollymer.js", "Pollymer"]
     ], function(ctx) {

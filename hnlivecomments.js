@@ -296,6 +296,8 @@
 
             var items = [];
 
+            var parentIds = [];
+
             $.each(spacerImages, function(i, element) {
                 var spacer = $(element);
                 var indent = parseInt(spacer.attr("width")) / 40; // Each item is indented by 40 px
@@ -303,6 +305,10 @@
 
                 var entry = scrapeRow(articleTable);
                 entry.indent = indent;
+                parentIds[indent] = entry.id;
+                if (indent > 0) {
+                    entry.parentId = parentIds[indent - 1];
+                }
                 items.push(entry);
             });
 
@@ -326,7 +332,7 @@
 
             var postIdNode = null;
 
-            $(frameworkTables[0]).find("a").each(function(i, element) {
+            $(frameworkTables[0]).find("td.subtext a").each(function(i, element) {
                 var href = $(element).attr("href");
                 if (href.substring(0, 8) == "item?id=") {
                     postIdNode = $(element);

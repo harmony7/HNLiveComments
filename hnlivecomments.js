@@ -240,11 +240,45 @@
             // Because of the messy HTML given to us by HackerNews,
             // we get a bunch of unclosed <p> tags.  For this reason we
             // have to move stuff around a bit.
+
+            // This should not be a <span> because it contains <p> tags.  But whatever.
+            var commentsSpan = $(tableElement).find("span.comment");
+
+            // In at least Safari and Chrome and IE11,
+            // <span><font>abc<p>def<p>ghi</font></span><p><font><u><a>link</a><u></font> is read into the DOM as:
+            // <span><font>abc<p>def</p></font><p><font>ghi</font></p><p><font><u><a>link</a><u></font></p></span>
+
+            // First let's move the last <p> (surrounding the link) outside the span (append it to the table)
             var replyLink = $(tableElement).find("td.default a:last");
             var theParagraph = replyLink.closest("p");
             $(tableElement).find("td.default").append(theParagraph);
 
-            var comment = $(tableElement).find("span.comment").html();
+            // <span><font>abc<p>def</p></font><p><font>ghi</font></p></span>
+
+            // Next, find the first <font>.  See if it contains a <p>.
+            // If it does, move it to right after this <font>
+            var firstFont = commentsSpan.find("font:first");
+            firstFont.find("p").insertAfter(firstFont);
+
+            // <span><font>abc</font><p>def</p><p><font>ghi</font></p></span>
+
+            // Now let's put a <p> tag around the first <font> so that
+            // we have a bunch of <p> tags as children of the span.
+            firstFont.wrap("<p></p>");
+
+            // <span><p><font>abc</font></p><p>def</p><p><font>ghi</font></p></span>
+
+            // Now we need to take all the font tags and remove them.
+            var fontTags = commentsSpan.find("font[color='#000000']");
+            fontTags.each(function(i, element) {
+                $(element).parent().html($(element).html());
+            });
+
+            // Should have:
+
+            // <span><p>abc</p><p>def</p><p>ghi</p></span>
+
+            var comment = commentsSpan.html();
 
             var time = readTimeSpan(dateString);
             return buildEntry(id, 0, user, comment, time);
@@ -294,7 +328,7 @@
                 "<td class=\"default\"><div style=\"margin-top:2px; margin-bottom:-10px; \"><span class=\"comhead\">" +
                 "<a data-bind=\"text: user, attr: { href: 'user?id=' + user }\"></a> <span data-bind=\"text: ago\"></span> | " +
                 "<a data-bind=\"attr: { href: 'item?id=' + id }\">link</a></span></div>" +
-                "<br><span class=\"comment\" data-bind=\"html: comment\"></span>" +
+                "<br><span style=\"color: #000000\" class=\"comment\" data-bind=\"html: comment\"></span>" +
                 "<p><font size=\"1\"><u><a data-bind=\"attr: { href: 'reply?id=' + id }\">reply</a></u></font></p>" +
                 "</td>" +
                 "</tr></tbody></table>" +

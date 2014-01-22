@@ -153,7 +153,7 @@
                 "Hacker News Live Comments Bookmarklet (<a href=\"http://hnlivecomments.pex2.jp/\" target=\"_blank\">About</a>)" +
                 "</td><td style=\"text-align:right;height: 28px;\">" +
                 "<span data-bind=\"visible: isRefreshing\"><img src=\"" + appRoot + "ajax-loader-blue.gif\" style=\"vertical-align:text-bottom;\"/></span>" +
-                "<button data-bind=\"text: 'Updates: ' + (realtime() ? 'ON' : 'OFF'), click: switchRealtime\"></button>" +
+                "<button data-bind=\"text: realtimeButtonLabel, click: switchRealtime, disable: isInitializingRealtime\"></button>" +
                 "<button data-bind=\"visible: debugMode() && !isRefreshing(), click: refresh\">Refresh comments</button>" +
                 "<button data-bind=\"visible: debugMode() && isRefreshing()\" disabled>Refreshing...</button>" +
                 "<button data-bind=\"visible: debugMode, click: addTestTop\">Add Test Item (Top)</button>" +
@@ -389,6 +389,7 @@
             this.isRefreshing = ko.computed(function() {
                 return refreshHolder() != null;
             });
+            this.isInitializingRealtime = ko.observable(false);
             this.isEmpty = ko.computed(function() {
                 return this.comments().length == 0 && refreshHolder() == null;
             }, this);
@@ -454,6 +455,13 @@
             this.switchRealtime = function() {
                 this.realtime(!this.realtime());
             };
+
+            this.realtimeButtonLabel = ko.computed(function() {
+                if (this.isInitializingRealtime()) {
+                    return "Initializing Updates...";
+                }
+                return 'Updates: ' + (this.realtime() ? 'ON' : 'OFF');
+            }, this);
 
             this.refresh = function() {
                 this.insertItems(true, []);
@@ -525,6 +533,7 @@
         var lastCursor = null;
         var req = new Pollymer.Request();
         req.on('finished', function(code, result) {
+            viewModel.isInitializingRealtime(false);
             if (code == 404) {
                 // If 404, then we have a bad last cursor.  We clear the last cursor
                 // and start again as though this were the first call.
@@ -555,6 +564,7 @@
         // Bind a handler to when we start or stop realtime
         viewModel.realtime.subscribe(function(value) {
             if (value) {
+                viewModel.isInitializingRealtime(true);
                 // Switching on realtime
                 req.start('GET', function() {
                     var baseUri = '//api.hnstream.com';
@@ -563,6 +573,7 @@
             } else {
                 // Switching off realtime
                 req.abort();
+                lastCursor = null;
             }
         });
 
@@ -571,11 +582,9 @@
 
         window["hnlivecomments-enable-debug"] = function() {
             viewModel.debugMode(true);
-            window.ext$ = $;
         };
         window["hnlivecomments-disable-debug"] = function() {
             viewModel.debugMode(false);
-            delete window.ext$;
         };
     };
 

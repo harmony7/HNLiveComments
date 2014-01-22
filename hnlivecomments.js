@@ -151,9 +151,11 @@
             "<div class=\"hnLiveCommentsInfoBar\">" +
                 "<table width=\"85%\"><tr><td>" +
                 "Hacker News Live Comments Bookmarklet (<a href=\"http://hnlivecomments.pex2.jp/\" target=\"_blank\">About</a>)" +
-                "</td><td style=\"text-align:right\">" +
+                "</td><td style=\"text-align:right;height: 28px;\">" +
+                "<span data-bind=\"visible: isRefreshing\"><img src=\"" + appRoot + "ajax-loader-blue.gif\" style=\"vertical-align:text-bottom;\"/></span>" +
                 "<button data-bind=\"text: 'Updates: ' + (realtime() ? 'ON' : 'OFF'), click: switchRealtime\"></button>" +
-                "<button data-bind=\"visible: debugMode, click: refresh\">Refresh comments</button>" +
+                "<button data-bind=\"visible: debugMode() && !isRefreshing(), click: refresh\">Refresh comments</button>" +
+                "<button data-bind=\"visible: debugMode() && isRefreshing()\" disabled>Refreshing...</button>" +
                 "<button data-bind=\"visible: debugMode, click: addTestTop\">Add Test Item (Top)</button>" +
                 "<button data-bind=\"visible: debugMode, click: addTestRandom\">Add Test Item (Random)</button>" +
                 "</td></tr></table>" +
@@ -364,12 +366,6 @@
                 "</tr></tbody></table>" +
                 "</td></tr>" +
                 "<!-- /ko -->" +
-                "<tr data-bind=\"visible: isRefreshing\"><td>" +
-                "<div style=\"padding: 4px 30px;\"><img src=\"" + appRoot + "ajax-loader.gif\" /> Refreshing Comments...</div>" +
-                "</td></tr>" +
-                "<tr data-bind=\"visible: initializing\"><td>" +
-                "<div style=\"padding: 4px 30px;\"><img src=\"" + appRoot + "ajax-loader.gif\" /> Initializing...</div>" +
-                "</td></tr>" +
             "</tbody></table>"
         ).insertAfter(outerTable);
 
@@ -380,7 +376,6 @@
         postIdNode.attr("data-bind", "text: numCommentsString");
 
         var ViewModel = function(id, comments) {
-            this.initializing = ko.observable(true);
             this.id = id;
             this.comments = ko.observableArray(comments);
             this.slideInCommentItems = function(elem) {
@@ -428,7 +423,6 @@
                 }
             };
             this.insertItems = function(needRefresh, items) {
-                this.initializing(false);
                 if (needRefresh) {
                     var viewModel = this;
                     refreshHolder($("<div>"));
@@ -462,17 +456,12 @@
             };
 
             this.refresh = function() {
-                lastCursor = null;
-                this.realtime(false);
-                this.realtime(true);
+                this.insertItems(true, []);
             };
 
             this.numCommentsString = ko.computed(function() {
-                if (this.initializing()) {
-                    return "Initializing...";
-                }
                 if (this.isRefreshing()) {
-                    return "Refreshing...";
+                    return "...";
                 }
                 return this.comments().length + ' comments';
             }, this);

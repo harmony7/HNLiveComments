@@ -195,6 +195,10 @@
 
         var now = ko.observable(new Date());
 
+        var scrapePostId = function(node) {
+            return node != null ? node.attr("href").substring(8) : null;
+        };
+
         var buildEntry = function(id, parentId, user, comment, time) {
             var obj = {
                 id: id,
@@ -286,7 +290,7 @@
 
         var scrapeTables = function(scope) {
             // Find the containing table by looking for s.gif on the page.
-            var spacerImages = scope.find("img[src='s.gif']").slice(1, -1);
+            var spacerImages = scope.find("img[src='s.gif']");
 
             var items = [];
 
@@ -303,17 +307,43 @@
             return items;
         };
 
-        var frameworkTables = $("body > center > table > tbody > tr:nth-child(3) > td > table");
+        var tableWrapper = $("body > center");
 
-        var outerTable;
-        if (frameworkTables.length > 1) {
-            outerTable = $(frameworkTables[1]);
-        } else {
-            var td = $(frameworkTables[0]).closest("td");
-            var outerTable = $("<table border=\"0\"></table>");
-            td.append(outerTable);
-            td.append("<br><br>")
-        }
+        var findTables = function(tableWrapper) {
+            var frameworkTables = tableWrapper.find("> table > tbody > tr:nth-child(3) > td > table");
+
+            var outerTable;
+            if (frameworkTables.length > 1) {
+                outerTable = $(frameworkTables[1]);
+            } else {
+                var td = $(frameworkTables[0]).closest("td");
+                var outerTable = $("<table border=\"0\"></table>");
+                td.append(outerTable);
+                td.append("<br><br>")
+            }
+
+            var postIdNode = null;
+
+            $(frameworkTables[0]).find("a").each(function(i, element) {
+                var href = $(element).attr("href");
+                if (href.substring(0, 8) == "item?id=") {
+                    postIdNode = $(element);
+                    return false;
+                }
+            });
+
+            return {
+                outerTable: outerTable,
+                postIdNode: postIdNode
+            };
+        };
+
+        var tables = findTables(tableWrapper);
+
+        var outerTable = tables.outerTable;
+
+        // Perform initial scrape of comments
+        var comments = scrapeTables(outerTable);
 
         $(
             "<table><tbody>" +
@@ -345,23 +375,14 @@
 
         outerTable.remove();
 
-        var numCommentsNode = null;
+        var postIdNode = tables.postIdNode;
+        var id = scrapePostId(postIdNode);
+        postIdNode.attr("data-bind", "text: numCommentsString");
 
-        $(frameworkTables[0]).find("a").each(function(i, element) {
-            var href = $(element).attr("href");
-            if (href.substring(0, 8) == "item?id=") {
-                numCommentsNode = $(element);
-                return false;
-            }
-        });
-
-        var id = numCommentsNode != null ? numCommentsNode.attr("href").substring(8) : null;
-        numCommentsNode.attr("data-bind", "text: numCommentsString");
-
-        var ViewModel = function(id) {
+        var ViewModel = function(id, comments) {
             this.initializing = ko.observable(true);
             this.id = id;
-            this.comments = ko.observableArray();
+            this.comments = ko.observableArray(comments);
             this.slideInCommentItems = function(elem) {
                 if (elem.nodeType == 1) {
                     var height = elem.clientHeight;
@@ -382,23 +403,25 @@
                     var viewModel = this;
                     $.each(queue, function() {
                         var item = this;
-                        var index = 0;
-                        var skip = false;
+                        var result = {skip: false, index:0, indent: 0};
                         $.each(viewModel.comments(), function(i) {
                             // Skip item if already in comments
                             if (this.id == item.id) {
-                                skip = true;
+                                result.skip = true;
                                 return false;
                             }
-                            // Move to appropriate position and indentation
-                            // if we found the parent.
+                            // Found the parent; remember where appropriate
+                            // position and indentation would be
                             if (this.id == item.parentId) {
-                                index = i + 1;
-                                item.indent = this.indent + 1;
+                                result.index = i + 1;
+                                result.indent = this.indent + 1;
                             }
                         });
-                        if (!skip) {
-                            viewModel.comments.splice(index, 0, item);
+                        if (!result.skip) {
+                            // Apply position and indentation only
+                            // if item was not already found.
+                            item.indent = result.indent;
+                            viewModel.comments.splice(result.index, 0, item);
                         }
                     });
                     queue = [];
@@ -408,12 +431,17 @@
                 this.initializing(false);
                 if (needRefresh) {
                     var viewModel = this;
-                    this.comments.removeAll();
                     refreshHolder($("<div>"));
                     refreshHolder().load("/item?id=" + id + " table:first", function() {
-                        var comments = scrapeTables(refreshHolder());
+                        var tables = findTables(refreshHolder());
+                        var outerTable = tables.outerTable;
+                        var comments = scrapeTables(outerTable);
+                        // Have to reverse and then unshift
+                        // because we need the entries to end up at the beginning of
+                        // queue but unshift will reverse them :/
+                        comments.reverse();
                         $.each(comments, function() {
-                            viewModel.comments.push(this);
+                            queue.unshift(this);
                         });
                         refreshHolder(null);
                         viewModel.addQueuedItems();
@@ -496,7 +524,8 @@
             };
         };
 
-        var viewModel = new ViewModel(id);
+        // Create view model, passing in the ID and comments
+        var viewModel = new ViewModel(id, comments);
 
         ko.applyBindings(viewModel);
 

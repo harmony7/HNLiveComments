@@ -542,6 +542,9 @@
         $(document.body)
             .css("padding-top", hnLiveCommentsInfoBar.height() + "px");
 
+        // Remove 'preparing' cover
+        $("#hn-cover").remove();
+
         var lastCursor = null;
         var req = new Pollymer.Request();
         req.on('finished', function(code, result) {

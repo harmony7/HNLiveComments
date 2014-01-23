@@ -152,12 +152,17 @@
                 "<table width=\"85%\"><tr><td>" +
                 "Hacker News Live Comments Bookmarklet (<a href=\"http://hnlivecomments.pex2.jp/\" target=\"_blank\">About</a>)" +
                 "</td><td style=\"text-align:right;height: 28px;\">" +
-                "<span data-bind=\"visible: isRefreshing\"><img src=\"" + appRoot + "ajax-loader-blue.gif\" style=\"vertical-align:text-bottom;\"/></span>" +
-                "<button data-bind=\"text: realtimeButtonLabel, click: switchRealtime, disable: isInitializingRealtime\"></button>" +
-                "<button data-bind=\"visible: debugMode() && !isRefreshing(), click: refresh\">Refresh comments</button>" +
-                "<button data-bind=\"visible: debugMode() && isRefreshing()\" disabled>Refreshing...</button>" +
-                "<button data-bind=\"visible: debugMode, click: addTestTop\">Add Test Item (Top)</button>" +
-                "<button data-bind=\"visible: debugMode, click: addTestRandom\">Add Test Item (Random)</button>" +
+                "<span data-bind=\"visible: needsInitialScrape\">" +
+                    "<button disabled>Preparing...</button>" +
+                "</span>" +
+                "<span data-bind=\"visible: !needsInitialScrape()\">" +
+                    "<span data-bind=\"visible: isRefreshing\"><img src=\"" + appRoot + "ajax-loader-blue.gif\" style=\"vertical-align:text-bottom;\"/></span>" +
+                    "<button data-bind=\"text: realtimeButtonLabel, click: switchRealtime, disable: isInitializingRealtime\"></button>" +
+                    "<button data-bind=\"visible: debugMode() && !isRefreshing(), click: refresh\">Refresh comments</button>" +
+                    "<button data-bind=\"visible: debugMode() && isRefreshing()\" disabled>Refreshing...</button>" +
+                    "<button data-bind=\"visible: debugMode, click: addTestTop\">Add Test Item (Top)</button>" +
+                    "<button data-bind=\"visible: debugMode, click: addTestRandom\">Add Test Item (Random)</button>" +
+                "</span>" +
                 "</td></tr></table>" +
             "</div>"
         );
@@ -166,6 +171,9 @@
 
         var styleSheet =
             "<style>" +
+                ".default p:first-child {" +
+                "margin-top:0;" +
+                "}" +
                 ".comment-item {" +
                 "-moz-transition: height 1s, opacity 1s; -webkit-transition: height 1s, opacity 1s; transition: height 1s, opacity 1s;" +
                 "}" +
@@ -318,21 +326,22 @@
         var tableWrapper = $("body > center");
 
         var findTables = function(tableWrapper) {
-            var frameworkTables = tableWrapper.find("> table > tbody > tr:nth-child(3) > td > table");
+            var opTable = tableWrapper.find(".title").closest("table");
+
+            var followingTables = opTable.nextAll("table");
 
             var outerTable;
-            if (frameworkTables.length > 1) {
-                outerTable = $(frameworkTables[1]);
+            if (followingTables.length > 0) {
+                outerTable = $(followingTables[0]);
             } else {
-                var td = $(frameworkTables[0]).closest("td");
-                var outerTable = $("<table border=\"0\"></table>");
-                td.append(outerTable);
-                td.append("<br><br>")
+                outerTable = $("<table border=\"0\"></table>");
+                opTable.parent().append(outerTable);
+                opTable.parent().append("<br><br>");
             }
 
             var postIdNode = null;
 
-            $(frameworkTables[0]).find("td.subtext a").each(function(i, element) {
+            opTable.find("td.subtext a").each(function(i, element) {
                 var href = $(element).attr("href");
                 if (href.substring(0, 8) == "item?id=") {
                     postIdNode = $(element);
@@ -349,9 +358,6 @@
         var tables = findTables(tableWrapper);
 
         var outerTable = tables.outerTable;
-
-        // Perform initial scrape of comments
-        var comments = scrapeTables(outerTable);
 
         $(
             "<table><tbody>" +
@@ -375,15 +381,15 @@
             "</tbody></table>"
         ).insertAfter(outerTable);
 
-        outerTable.remove();
-
         var postIdNode = tables.postIdNode;
         var id = scrapePostId(postIdNode);
+        var initialCount = postIdNode.text();
         postIdNode.attr("data-bind", "text: numCommentsString");
 
-        var ViewModel = function(id, comments) {
+        var ViewModel = function(id) {
+            this.needsInitialScrape = ko.observable(true);
             this.id = id;
-            this.comments = ko.observableArray(comments);
+            this.comments = ko.observableArray();
             this.slideInCommentItems = function(elem) {
                 if (elem.nodeType == 1) {
                     var height = elem.clientHeight;
@@ -474,8 +480,8 @@
             };
 
             this.numCommentsString = ko.computed(function() {
-                if (this.isRefreshing()) {
-                    return "...";
+                if (this.needsInitialScrape()) {
+                    return initialCount;
                 }
                 return this.comments().length + ' comments';
             }, this);
@@ -528,7 +534,7 @@
         };
 
         // Create view model, passing in the ID and comments
-        var viewModel = new ViewModel(id, comments);
+        var viewModel = new ViewModel(id);
 
         ko.applyBindings(viewModel);
 
@@ -583,8 +589,28 @@
             }
         });
 
-        // Set realtime on
-        viewModel.realtime(true);
+        // Prepare to start this going.
+        // Comments is still empty, but let's get the bar up there.
+        window.setTimeout(function() {
+            // Once we are running...
+
+            // Perform initial scrape of comments
+            var comments = scrapeTables(outerTable);
+            outerTable.remove();
+            outerTable = null;
+
+            viewModel.comments.valueWillMutate();
+            $.each(comments, function() {
+                viewModel.comments().push(this);
+            });
+            viewModel.comments.valueHasMutated();
+
+            // Indicate that we are done scraping
+            viewModel.needsInitialScrape(false);
+
+            // Set realtime on
+            viewModel.realtime(true);
+        }, 0);
 
         window["hnlivecomments-enable-debug"] = function() {
             viewModel.debugMode(true);

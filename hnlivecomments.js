@@ -602,7 +602,7 @@
                 // Switching on realtime
                 req.start('GET', function() {
                     var baseUri = '//api.hnstream.com';
-                    return baseUri + '/news/' + id + '/comments/items/?since=cursor%3A' + (lastCursor != null ? lastCursor : "");
+                    return baseUri + '/news/' + id + '/comments/items/' + (lastCursor != null ? ("?since=cursor%3A" + lastCursor) : "");
                 });
             } else {
                 // Switching off realtime

@@ -119,15 +119,26 @@
         return str.substring(0, length) == compare;
     };
 
+    var cleanUp = function() {
+        // Remove 'preparing' cover
+        var cover = window.document.getElementById("hn-cover");
+        if (cover) {
+            cover.parentNode.removeChild(cover);
+        }
+        window.document.body.style.paddingTop=window['AC37E99A-3A9A-44EF-A901-20285DEB1ECEa'];
+    };
+
     // Pre-startup tasks
 
     if (!stringBeginsWith(location.href, "https://news.ycombinator.com/item?id=")) {
         alert("This bookmarklet should be invoked only on individual article pages on Hacker News.");
+        cleanUp();
         return;
     }
 
     if (window["E608C736-2041-47A9-A2A5-591114F4123B"]) {
         console.log("Double-loading prevented.");
+        cleanUp();
         return;
     }
     window["E608C736-2041-47A9-A2A5-591114F4123B"] = true;
@@ -141,6 +152,7 @@
         [appRoot + "knockout-3.0.0.js", "ko"],
         [appRoot + "pollymer.js", "Pollymer"]
     ], function(ctx) {
+        cleanUp();
         main(ctx.$, ctx.ko, ctx.Pollymer);
     });
 
@@ -169,7 +181,7 @@
 
         $(document.body).append(hnLiveCommentsInfoBar);
 
-        var styleSheet =
+        var styleSheet = $(
             "<style>" +
                 ".default p:first-child {" +
                 "margin-top:0;" +
@@ -199,7 +211,8 @@
                 "padding: 2px 8px;" +
                 "font: bold 10pt Verdana;" +
                 "}" +
-            "</style>";
+            "</style>"
+        );
 
         $(document.body).append(styleSheet);
 
@@ -357,6 +370,20 @@
 
         var tables = findTables(tableWrapper);
 
+        var postIdNode = tables.postIdNode;
+        if (postIdNode == null) {
+            // For now we don't support subtopic pages.
+            alert("This bookmarklet should be invoked only on individual article pages on Hacker News.");
+            cleanUp();
+            hnLiveCommentsInfoBar.remove();
+            styleSheet.remove();
+            return;
+        }
+
+        var id = scrapePostId(postIdNode);
+        var initialCount = postIdNode.text();
+        postIdNode.attr("data-bind", "text: numCommentsString");
+
         var outerTable = tables.outerTable;
 
         $(
@@ -380,11 +407,6 @@
                 "<!-- /ko -->" +
             "</tbody></table>"
         ).insertAfter(outerTable);
-
-        var postIdNode = tables.postIdNode;
-        var id = scrapePostId(postIdNode);
-        var initialCount = postIdNode.text();
-        postIdNode.attr("data-bind", "text: numCommentsString");
 
         var ViewModel = function(id) {
             this.needsInitialScrape = ko.observable(true);
@@ -541,9 +563,6 @@
         // Move top down just a bit to allow room for info bar
         $(document.body)
             .css("padding-top", hnLiveCommentsInfoBar.height() + "px");
-
-        // Remove 'preparing' cover
-        $("#hn-cover").remove();
 
         var lastCursor = null;
         var req = new Pollymer.Request();

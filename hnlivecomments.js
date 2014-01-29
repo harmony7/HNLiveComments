@@ -131,14 +131,14 @@
     // Pre-startup tasks
 
     if (!stringBeginsWith(location.href, "https://news.ycombinator.com/item?id=")) {
-        alert("This bookmarklet should be invoked only on individual article pages on Hacker News.");
         cleanUp();
+        alert("This bookmarklet should be invoked only on individual article pages on Hacker News.");
         return;
     }
 
     if (window["E608C736-2041-47A9-A2A5-591114F4123B"]) {
-        console.log("Double-loading prevented.");
         cleanUp();
+        console.log("Double-loading prevented.");
         return;
     }
     window["E608C736-2041-47A9-A2A5-591114F4123B"] = true;
@@ -373,10 +373,10 @@
         var postIdNode = tables.postIdNode;
         if (postIdNode == null) {
             // For now we don't support subtopic pages.
-            alert("This bookmarklet should be invoked only on individual article pages on Hacker News.");
             cleanUp();
             hnLiveCommentsInfoBar.remove();
             styleSheet.remove();
+            alert("This bookmarklet should be invoked only on individual article pages on Hacker News.");
             return;
         }
 

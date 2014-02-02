@@ -190,6 +190,7 @@
         };
 
         var transitionTime = "1s";
+        var bgTransitionTime = "2s";
 
         var declareAnimations = function(animationName, content) {
             var output = [];
@@ -225,7 +226,7 @@
                 "}" +
                 ".hn-comment-holder {" +
                 "overflow: hidden;" +
-                generateTransitions("height " + transitionTime + ", background-color " + transitionTime) +
+                generateTransitions("height " + transitionTime + ", background-color " + bgTransitionTime) +
                 "}" +
                 ".hnLiveCommentsInfoBar {" +
                 "background-color: #54B0DF;" +
@@ -478,6 +479,7 @@
                     if(!viewModel.needsInitialScrape()) {
                         holder.closest("tr").addClass("hn-hidden-row");
                         holder.css("height", "0");
+                        holder.css("background-color", "#ff6");
                     }
                 }
             };
@@ -591,6 +593,7 @@
                         offset: -hnLiveCommentsInfoBar.height(),
                         onAfter: function() {
                             holder.css("height", height + "px");
+                            holder.css("background-color", "inherit");
                         }
                     });
                 }, 0);

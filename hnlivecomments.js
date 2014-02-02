@@ -181,8 +181,20 @@
 
         $(document.body).append(hnLiveCommentsInfoBar);
 
+        var generateTransitions = function(transitionType, time) {
+            var transition = transitionType + " " + time + ";";
+            return "-moz-transition: " + transition +
+                "-webkit-transition: " + transition +
+                "transition: " + transition;
+        };
+
+        var transitionTime = "1s";
+
         var styleSheet = $(
             "<style>" +
+                "body {" +
+                generateTransitions("padding-top", transitionTime) +
+                "}" +
                 ".default p:first-child {" +
                 "margin-top:0;" +
                 "}" +
@@ -195,9 +207,14 @@
                 ".hnLiveCommentsInfoBar {" +
                 "background-color: #54B0DF;" +
                 "position: fixed;" +
+                "overflow: hidden;" +
                 "top: 0;" +
                 "left: 0;" +
                 "width: 100%;" +
+                "}" +
+                ".hnLiveCommentsInfoBar.hidden {" +
+                "height: 0;" +
+                generateTransitions("height", transitionTime) +
                 "}" +
                 ".hnLiveCommentsInfoBar a {" +
                 "color: blue;" +
@@ -560,9 +577,16 @@
 
         ko.applyBindings(viewModel);
 
+        var height = hnLiveCommentsInfoBar.height();
+
+        hnLiveCommentsInfoBar.addClass("hidden");
+
+        hnLiveCommentsInfoBar
+            .css("height", height + "px");
+
         // Move top down just a bit to allow room for info bar
         $(document.body)
-            .css("padding-top", hnLiveCommentsInfoBar.height() + "px");
+            .css("padding-top", height + "px");
 
         var lastCursor = null;
         var req = new Pollymer.Request();

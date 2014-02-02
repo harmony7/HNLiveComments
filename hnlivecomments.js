@@ -228,6 +228,16 @@
                 "padding: 2px 8px;" +
                 "font: bold 10pt Verdana;" +
                 "}" +
+                ".hnLiveCommentsInfoBar button {" +
+                "border: none;" +
+                "background-color: #3399cc;" +
+                "padding: 4px;" +
+                "cursor: pointer;" +
+                "}" +
+                ".hnLiveCommentsInfoBar button:disabled {" +
+                "background-color: #ccc;" +
+                "cursor: default;" +
+                "}" +
             "</style>"
         );
 

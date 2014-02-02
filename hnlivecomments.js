@@ -149,6 +149,7 @@
     loadScriptsAndAddToContext([
         [appRoot + "json2.js"],
         [appRoot + "jquery-1.10.2.min.js", "$"],
+        [appRoot + "jquery.scrollTo-1.4.3.1-min.js"],
         [appRoot + "knockout-3.0.0.js", "ko"],
         [appRoot + "pollymer.js", "Pollymer"]
     ], function(ctx) {
@@ -170,6 +171,7 @@
                 "<span data-bind=\"visible: !needsInitialScrape()\">" +
                     "<span data-bind=\"visible: isRefreshing\"><img src=\"" + appRoot + "ajax-loader-blue.gif\" style=\"vertical-align:text-bottom;\"/></span>" +
                     "<button data-bind=\"text: realtimeButtonLabel, click: switchRealtime, disable: isInitializingRealtime\"></button>" +
+                    "<button data-bind=\"text: numUpdatesString, css: {updates: numUpdates() > 0 }, disable: numUpdates() == 0, visible: !isInitializingRealtime(), click: nextUpdate\"></button>" +
                     "<button data-bind=\"visible: debugMode() && !isRefreshing(), click: refresh\">Refresh comments</button>" +
                     "<button data-bind=\"visible: debugMode() && isRefreshing()\" disabled>Refreshing...</button>" +
                     "<button data-bind=\"visible: debugMode, click: addTestTop\">Add Test Item (Top)</button>" +
@@ -181,28 +183,49 @@
 
         $(document.body).append(hnLiveCommentsInfoBar);
 
-        var generateTransitions = function(transitionType, time) {
-            var transition = transitionType + " " + time + ";";
-            return "-moz-transition: " + transition +
-                "-webkit-transition: " + transition +
-                "transition: " + transition;
+        var generateTransitions = function(transition) {
+            return "-moz-transition: " + transition + ";" +
+                "-webkit-transition: " + transition + ";" +
+                "transition: " + transition + ";";
         };
 
         var transitionTime = "1s";
 
+        var declareAnimations = function(animationName, content) {
+            var output = [];
+            var prefixes = ["-webkit-", "-moz-", "-o-", ""];
+            $.each(prefixes, function(i, element) {
+                output.push("@" + element + "keyframes " + animationName + " {");
+                output.push(content);
+                output.push("}");
+            });
+            return output.join("");
+        };
+
+        var useAnimations = function(animationName, params) {
+            var output = [];
+            var prefixes = ["-webkit-", "-moz-", "-o-", ""];
+            $.each(prefixes, function(i, element) {
+                output.push(element + "animation: " + animationName + " " + params + ";");
+            });
+            return output.join("");
+        };
+
         var styleSheet = $(
             "<style>" +
+                declareAnimations("button-pulsate", "0% {background-color: #3399cc;} 100% {background-color: #9933cc;}") +
                 "body {" +
-                generateTransitions("padding-top", transitionTime) +
+                generateTransitions("padding-top " + transitionTime) +
                 "}" +
                 ".default p:first-child {" +
                 "margin-top:0;" +
                 "}" +
-                ".comment-item {" +
-                "-moz-transition: height 1s, opacity 1s; -webkit-transition: height 1s, opacity 1s; transition: height 1s, opacity 1s;" +
+                "tr.hn-hidden-row {" +
+                "display: none;" +
                 "}" +
-                ".comment-item.added {" +
-                "height: 0;" +
+                ".hn-comment-holder {" +
+                "overflow: hidden;" +
+                generateTransitions("height " + transitionTime + ", background-color " + transitionTime) +
                 "}" +
                 ".hnLiveCommentsInfoBar {" +
                 "background-color: #54B0DF;" +
@@ -214,7 +237,7 @@
                 "}" +
                 ".hnLiveCommentsInfoBar.hidden {" +
                 "height: 0;" +
-                generateTransitions("height", transitionTime) +
+                generateTransitions("height " + transitionTime) +
                 "}" +
                 ".hnLiveCommentsInfoBar a {" +
                 "color: blue;" +
@@ -233,6 +256,10 @@
                 "background-color: #3399cc;" +
                 "padding: 4px;" +
                 "cursor: pointer;" +
+                "}" +
+                ".hnLiveCommentsInfoBar button.updates {" +
+                useAnimations("button-pulsate", "alternate 1s infinite") +
+                "color: white;" +
                 "}" +
                 ".hnLiveCommentsInfoBar button:disabled {" +
                 "background-color: #ccc;" +
@@ -415,8 +442,9 @@
 
         $(
             "<table><tbody>" +
-                "<!-- ko foreach: {data: comments, afterAdd: slideInCommentItems } -->" +
+                "<!-- ko foreach: { data: comments, afterAdd: afterAdd } -->" +
                 "<tr><td>" +
+                "<div class=\"hn-comment-holder\">" +
                 "<table class=\"comment-item\" border=\"0\"><tbody><tr>"+
                 "<td>" +
                 "<img src=\"s.gif\" height=\"1\" data-bind=\"attr: { width: indent * 40 }\"></td>" +
@@ -430,6 +458,7 @@
                 "<p><font size=\"1\"><u><a data-bind=\"attr: { href: 'reply?id=' + id }\">reply</a></u></font></p>" +
                 "</td>" +
                 "</tr></tbody></table>" +
+                "</div>" +
                 "</td></tr>" +
                 "<!-- /ko -->" +
             "</tbody></table>"
@@ -439,11 +468,17 @@
             this.needsInitialScrape = ko.observable(true);
             this.id = id;
             this.comments = ko.observableArray();
-            this.slideInCommentItems = function(elem) {
+            var viewModel = this;
+            this.afterAdd = function(elem, i, item) {
                 if (elem.nodeType == 1) {
-                    var height = elem.clientHeight;
-                    $(elem).data("fullPixelHeight", height);
-                    elem.className += " added";
+                    var holder = $(elem).find(".hn-comment-holder");
+                    item.holder = holder;
+                    var height = holder[0].clientHeight;
+                    item.fullPixelHeight = height;
+                    if(!viewModel.needsInitialScrape()) {
+                        holder.closest("tr").addClass("hn-hidden-row");
+                        holder.css("height", "0");
+                    }
                 }
             };
             var refreshHolder = ko.observable(null);
@@ -455,6 +490,7 @@
                 return this.comments().length == 0 && refreshHolder() == null;
             }, this);
             var queue = [];
+            var newItemIds = ko.observableArray();
             this.addQueuedItems = function() {
                 if (refreshHolder() == null) {
                     var viewModel = this;
@@ -479,6 +515,7 @@
                             // if item was not already found.
                             item.indent = result.indent;
                             viewModel.comments.splice(result.index, 0, item);
+                            newItemIds.push(item);
                         }
                     });
                     queue = [];
@@ -534,6 +571,30 @@
                 }
                 return this.comments().length + ' comments';
             }, this);
+
+            this.numUpdates = ko.computed(function() {
+                return newItemIds().length;
+            }, this);
+
+            this.numUpdatesString = ko.computed(function() {
+                var num = this.numUpdates();
+                return num + ' new comment' + (num != 1 ? "s" : "");
+            }, this);
+
+            this.nextUpdate = function() {
+                var item = newItemIds.shift();
+                var holder = item.holder;
+                var height = item.fullPixelHeight;
+                holder.closest("tr").removeClass("hn-hidden-row");
+                window.setTimeout(function() {
+                    $.scrollTo(holder, 800, {
+                        offset: -hnLiveCommentsInfoBar.height(),
+                        onAfter: function() {
+                            holder.css("height", height + "px");
+                        }
+                    });
+                }, 0);
+            };
 
             this.addTestEntry = function(fn) {
                 var entry = buildEntry(

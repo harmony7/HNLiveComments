@@ -166,6 +166,9 @@
                 user: user,
                 comment: comment,
                 time: ko.observable(time),
+                upVoteLink: null,
+                score: 0,
+                selfComment: false,
                 indent: 0
             };
             obj.ago = ko.computed(function() {
@@ -175,23 +178,14 @@
         };
 
         var scrapeRow = function(tableElement) {
-            var id = 0;
-            $(tableElement).find("a").each(function(i, element) {
-                var href = $(element).attr("href");
-                if (href.substring(0, 8) == "item?id=") {
-                    id = href.substring(8);
-                    return false;
-                }
-            });
+            var upVoteElement = $(tableElement).find("a[id^='up_']").first();
+            var upVoteLink = upVoteElement.length > 0 ? upVoteElement.attr("href") : null;
 
-            var user = "";
-            $(tableElement).find("a").each(function(i, element) {
-                var href = $(element).attr("href");
-                if (href.substring(0, 8) == "user?id=") {
-                    user = href.substring(8);
-                    return false;
-                }
-            });
+            var idElement = $(tableElement).find("a[href^='item?id=']").first();
+            var id = idElement.length > 0 ? parseInt(idElement.attr("href").substring(8)) : 0;
+
+            var userElement = $(tableElement).find("a[href^='user?id=']").first();
+            var user = userElement.length > 0 ? userElement.attr("href").substring(8) : "";
 
             var dateElements = $(tableElement).find(".comhead").contents().filter(function() {
                 return this.nodeType == 3;
@@ -245,7 +239,11 @@
             var comment = commentsSpan.html();
 
             var time = readTimeSpan(dateString);
-            return buildEntry(id, 0, user, comment, time);
+
+            var entry = buildEntry(id, 0, user, comment, time);
+            entry.upVoteLink = upVoteLink;
+
+            return entry;
         };
 
         var scrapeTables = function(scope) {
@@ -258,7 +256,13 @@
 
             $.each(spacerImages, function(i, element) {
                 var spacer = $(element);
-                var indent = parseInt(spacer.attr("width")) / 40; // Each item is indented by 40 px
+                var width = parseInt(spacer.attr("width"));
+                if (width % 40 != 0) {
+                    // Self comments have an extra s.gif whose width is 14.
+                    // Filter out such extraneous uses of s.gif
+                    return;
+                }
+                var indent = width / 40; // Each item is indented by 40 px
                 var articleTable = $(element).closest("table");
 
                 var entry = scrapeRow(articleTable);
@@ -289,15 +293,7 @@
                 opTable.parent().append("<br><br>");
             }
 
-            var postIdNode = null;
-
-            opTable.find("td.subtext a").each(function(i, element) {
-                var href = $(element).attr("href");
-                if (href.substring(0, 8) == "item?id=") {
-                    postIdNode = $(element);
-                    return false;
-                }
-            });
+            var postIdNode = opTable.find("td.subtext a[href^='item?id=']").first();
 
             return {
                 outerTable: outerTable,
@@ -379,28 +375,32 @@
                     var viewModel = this;
                     $.each(queue, function() {
                         var item = this;
-                        var result = {newOrHasParent: false, skip: false, index:0, indent: 0};
-                        if (item.parentId != undefined) {
-                            $.each(viewModel.comments(), function(i) {
+                        var result = {hasParent: false, index:0, indent: 0, existingItem: null};
+                        $.each(viewModel.comments(), function(i) {
+                            if (this.id == item.id) {
                                 // Skip item if already in comments
-                                if (this.id == item.id) {
-                                    result.skip = true;
-                                    return false;
-                                }
+                                result.existingItem = this;
+                                return false;
+                            }
+                            if (item.parentId != undefined && this.id == item.parentId) {
                                 // Found the parent; remember where appropriate
                                 // position and indentation would be
-                                if (this.id == item.parentId) {
-                                    result.index = i + 1;
-                                    result.indent = this.indent + 1;
-                                    // Mark as parent having been found.
-                                    result.newOrHasParent = true;
-                                }
-                            });
-                        } else {
-                            // Mark as new.
-                            result.newOrHasParent = true;
-                        }
-                        if (result.newOrHasParent && !result.skip) {
+                                result.index = i + 1;
+                                result.indent = this.indent + 1;
+                                // Mark as parent having been found.
+                                result.hasParent = true;
+                            }
+                        });
+                        if (result.existingItem != null) {
+                            // Since we found an existing item with the same ID, we will
+                            // instead of inserting this item into the list, be
+                            // upgrading existing item if incoming data is better
+
+                            var existingItem = result.existingItem;
+                            if (!existingItem.upVoteLink && item.upVoteLink) {
+                                existingItem.upVoteLink = item.upVoteLink;
+                            }
+                        } else if (item.parentId == undefined || result.hasParent) {
                             // Apply position and indentation only
                             // if item was not already found.
                             item.indent = result.indent;

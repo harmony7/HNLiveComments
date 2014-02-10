@@ -36,129 +36,8 @@
         return days + " day" + (days != 1 ? "s" : "") + " ago";
     };
 
-    // Load a script file, and then call the next callback function
-    var loadScriptWithCallback = function (url, callback) {
-        var script = document.createElement('script');
-        script.async = true;
-        script.src = url;
-        var entry = document.getElementsByTagName('script')[0];
-        entry.parentNode.insertBefore(script, entry);
-        if (script.addEventListener) {
-            script.addEventListener('load', function() {
-                callback();
-            }, false);
-        } else {
-            var readyHandler = function () {
-                if (/complete|loaded/.test(script.readyState)) {
-                    callback();
-                    script.detachEvent('onreadystatechange', readyHandler);
-                }
-            };
-            script.attachEvent('onreadystatechange', readyHandler);
-        }
-    };
-
-    // Load a script file and move the specified variables from the global
-    // scope to a property on a context object, then call the specified
-    // callback method and pass the context object to it.
-    var loadScriptAndAddToContext = function(script, varNames, callback) {
-        var ctx = {};
-        var tmpCtx = {};
-        for(var i = 0; i < varNames.length; i++) {
-            var varName = varNames[i];
-            if(varName in window) {
-                tmpCtx[varName] = window[varName];
-            }
-        }
-        loadScriptWithCallback(script, function() {
-            for(var i = 0; i < varNames.length; i++) {
-                var varName = varNames[i];
-                if (varName in window) {
-                    ctx[varName] = window[varName];
-                }
-                if(varName in tmpCtx) {
-                    window[varName] = tmpCtx[varName];
-                } else {
-                    delete window[varName];
-                }
-            }
-            callback(ctx);
-        });
-    };
-
-    // Load a series of script files, extracting the specified variables from
-    // the global scope after each file is loaded, and then call the specified
-    // callback method passing in a context object that contains the extracted
-    // variables as properties.
-    var loadScriptsAndAddToContext = function(scriptAndVarNames, callback) {
-        var ctx = {};
-        var worker = function(ctx, scriptAndVarNames, callback) {
-            if (scriptAndVarNames.length == 0) {
-                callback(ctx);
-            } else {
-                var list = scriptAndVarNames.slice(0);
-                var scriptAndVars = list.shift();
-                var script = scriptAndVars.shift();
-                loadScriptAndAddToContext(script, scriptAndVars, function(context) {
-                    for (prop in context) {
-                        if (context.hasOwnProperty(prop)) {
-                            ctx[prop] = context[prop];
-                        }
-                    }
-                    worker(ctx, list, callback);
-                });
-            }
-        };
-        return worker(ctx, scriptAndVarNames, callback);
-    };
-
-    // Return a boolean value indicating whether one string
-    // begins with the characters of another string.
-    var stringBeginsWith = function(str, compare) {
-        var length = compare.length;
-        return str.substring(0, length) == compare;
-    };
-
-    var cleanUp = function() {
-        // Remove 'preparing' cover
-        var cover = window.document.getElementById("hn-cover");
-        if (cover) {
-            cover.parentNode.removeChild(cover);
-        }
-        window.document.body.style.paddingTop=window['AC37E99A-3A9A-44EF-A901-20285DEB1ECEa'];
-    };
-
-    // Pre-startup tasks
-
-    if (!stringBeginsWith(location.href, "https://news.ycombinator.com/item?id=")) {
-        cleanUp();
-        alert("This bookmarklet should be invoked only on individual article pages on Hacker News.");
-        return;
-    }
-
-    if (window["E608C736-2041-47A9-A2A5-591114F4123B"]) {
-        cleanUp();
-        console.log("Double-loading prevented.");
-        return;
-    }
-    window["E608C736-2041-47A9-A2A5-591114F4123B"] = true;
-
-    var appRoot = window['AC37E99A-3A9A-44EF-A901-20285DEB1ECE'];
-
-    // Load various JavaScript files, and then jump to our main method below.
-    loadScriptsAndAddToContext([
-        [appRoot + "json2.js"],
-        [appRoot + "jquery-1.10.2.min.js", "$"],
-        [appRoot + "jquery.scrollTo-1.4.3.1-min.js"],
-        [appRoot + "knockout-3.0.0.js", "ko"],
-        [appRoot + "pollymer.js", "Pollymer"]
-    ], function(ctx) {
-        cleanUp();
-        main(ctx.$, ctx.ko, ctx.Pollymer);
-    });
-
     // Main entry point
-    var main = function($, ko, Pollymer) {
+    var main = function(loader, $, ko, Pollymer) {
 
         var hnLiveCommentsInfoBar = $(
             "<div class=\"hnLiveCommentsInfoBar\">" +
@@ -169,7 +48,7 @@
                     "<button disabled>Preparing...</button>" +
                 "</span>" +
                 "<span data-bind=\"visible: !needsInitialScrape()\">" +
-                    "<span data-bind=\"visible: isRefreshing\"><img src=\"" + appRoot + "ajax-loader-blue.gif\" style=\"vertical-align:text-bottom;\"/></span>" +
+                    "<span data-bind=\"visible: isRefreshing\"><img src=\"" + loader.appRoot + "ajax-loader-blue.gif\" style=\"vertical-align:text-bottom;\"/></span>" +
                     "<button data-bind=\"text: realtimeButtonLabel, click: switchRealtime, disable: isInitializingRealtime\"></button>" +
                     "<button data-bind=\"text: numUpdatesString, css: {updates: numUpdates() > 0 }, disable: numUpdates() == 0, visible: !isInitializingRealtime(), click: nextUpdate\"></button>" +
                     "<button data-bind=\"visible: debugMode() && !isRefreshing(), click: refresh\">Refresh comments</button>" +
@@ -428,10 +307,9 @@
         var postIdNode = tables.postIdNode;
         if (postIdNode == null) {
             // For now we don't support subtopic pages.
-            cleanUp();
             hnLiveCommentsInfoBar.remove();
             styleSheet.remove();
-            alert("This bookmarklet should be invoked only on individual article pages on Hacker News.");
+            loader.fatalError("This bookmarklet can be started only on individual article pages on Hacker News.\n(Subtopic pages are not supported at this time.)");
             return;
         }
 
@@ -740,4 +618,7 @@
         };
     };
 
+    window.hnlc = {
+        main: main
+    };
 })(window);

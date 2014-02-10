@@ -587,6 +587,16 @@
             }
         });
 
+        // Bind a handler to when the number of unread comments changes
+        var originalTitle = document.title;
+        viewModel.numUpdates.subscribe(function(value) {
+            if (value > 0) {
+                document.title = "(" + value + ") " + originalTitle;
+            } else {
+                document.title = originalTitle;
+            }
+        });
+
         // Prepare to start this going.
         // Comments is still empty, but let's get the bar up there.
         window.setTimeout(function() {

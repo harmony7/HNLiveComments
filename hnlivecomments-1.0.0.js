@@ -107,6 +107,9 @@
                 "overflow: hidden;" +
                 generateTransitions("height " + transitionTime + ", background-color " + bgTransitionTime) +
                 "}" +
+                ".hn-comment-holder .vote-arrow {" +
+                "visibility: hidden;" +
+                "}" +
                 ".hnLiveCommentsInfoBar {" +
                 "background-color: #54B0DF;" +
                 "position: fixed;" +
@@ -328,8 +331,8 @@
                 "<td>" +
                 "<img src=\"s.gif\" height=\"1\" data-bind=\"attr: { width: indent * 40 }\"></td>" +
                 "<td valign=\"top\"><center>" +
-                "<a data-bind=\"attr: { id: 'up_' + id, href: 'vote?for=' + id + '&amp;dir=up' }\"><div class=\"votearrow\" title=\"upvote\"></div></a>" +
-                "<span data-bind=\"attr: { id: 'down_' + id }\"></span></center></td>" +
+                "<a class='vote-arrow' data-bind=\"attr: { id: 'up_' + id, href: 'vote?for=' + id + '&amp;dir=up' }\"><div class=\"votearrow\" title=\"upvote\"></div></a>" +
+                "<span class='vote-arrow' data-bind=\"attr: { id: 'down_' + id }\"></span></center></td>" +
                 "<td class=\"default\"><div style=\"margin-top:2px; margin-bottom:-10px; \"><span class=\"comhead\">" +
                 "<a data-bind=\"text: user, attr: { href: 'user?id=' + user }\"></a> <span data-bind=\"text: ago\"></span> | " +
                 "<a data-bind=\"attr: { href: 'item?id=' + id }\">link</a></span></div>" +
@@ -376,21 +379,28 @@
                     var viewModel = this;
                     $.each(queue, function() {
                         var item = this;
-                        var result = {skip: false, index:0, indent: 0};
-                        $.each(viewModel.comments(), function(i) {
-                            // Skip item if already in comments
-                            if (this.id == item.id) {
-                                result.skip = true;
-                                return false;
-                            }
-                            // Found the parent; remember where appropriate
-                            // position and indentation would be
-                            if (this.id == item.parentId) {
-                                result.index = i + 1;
-                                result.indent = this.indent + 1;
-                            }
-                        });
-                        if (!result.skip) {
+                        var result = {newOrHasParent: false, skip: false, index:0, indent: 0};
+                        if (item.parentId != undefined) {
+                            $.each(viewModel.comments(), function(i) {
+                                // Skip item if already in comments
+                                if (this.id == item.id) {
+                                    result.skip = true;
+                                    return false;
+                                }
+                                // Found the parent; remember where appropriate
+                                // position and indentation would be
+                                if (this.id == item.parentId) {
+                                    result.index = i + 1;
+                                    result.indent = this.indent + 1;
+                                    // Mark as parent having been found.
+                                    result.newOrHasParent = true;
+                                }
+                            });
+                        } else {
+                            // Mark as new.
+                            result.newOrHasParent = true;
+                        }
+                        if (result.newOrHasParent && !result.skip) {
                             // Apply position and indentation only
                             // if item was not already found.
                             item.indent = result.indent;

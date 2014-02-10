@@ -121,7 +121,7 @@
         fatalError: fatalError
     };
 
-    // Load various JavaScript files, and then jump to our main method below.
+    // Load various JavaScript files, and then jump to our main method inside the hnlc module.
     loadScriptsAndAddToContext([
         [appRoot + "json2.js"],
         [appRoot + "jquery-1.10.2.min.js", "$"],

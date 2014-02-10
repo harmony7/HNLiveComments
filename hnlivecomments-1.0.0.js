@@ -107,7 +107,7 @@
                 "overflow: hidden;" +
                 generateTransitions("height " + transitionTime + ", background-color " + bgTransitionTime) +
                 "}" +
-                ".hn-comment-holder .vote-arrow {" +
+                ".hn-comment-holder .hidden-vote-arrow {" +
                 "visibility: hidden;" +
                 "}" +
                 ".hnLiveCommentsInfoBar {" +
@@ -159,18 +159,22 @@
             return node != null ? node.attr("href").substring(8) : null;
         };
 
-        var buildEntry = function(id, parentId, user, comment, time) {
+        var buildEntry = function(id, parentId, user, comment, time, upVoteLink) {
             var obj = {
                 id: id,
                 parentId: parentId,
                 user: user,
                 comment: comment,
                 time: ko.observable(time),
-                upVoteLink: null,
+                upVoteLink: ko.observable(upVoteLink),
                 score: 0,
                 selfComment: false,
                 indent: 0
             };
+            obj.upVoteHref = ko.computed(function() {
+                var upVoteLink = this.upVoteLink();
+                return upVoteLink != null ? this.upVoteLink() : "#";
+            }, obj);
             obj.ago = ko.computed(function() {
                 return formatTimeSpan(now().getTime() - this.time().getTime());
             }, obj);
@@ -240,8 +244,7 @@
 
             var time = readTimeSpan(dateString);
 
-            var entry = buildEntry(id, 0, user, comment, time);
-            entry.upVoteLink = upVoteLink;
+            var entry = buildEntry(id, 0, user, comment, time, upVoteLink);
 
             return entry;
         };
@@ -327,8 +330,8 @@
                 "<td>" +
                 "<img src=\"s.gif\" height=\"1\" data-bind=\"attr: { width: indent * 40 }\"></td>" +
                 "<td valign=\"top\"><center>" +
-                "<a class='vote-arrow' data-bind=\"attr: { id: 'up_' + id, href: 'vote?for=' + id + '&amp;dir=up' }\"><div class=\"votearrow\" title=\"upvote\"></div></a>" +
-                "<span class='vote-arrow' data-bind=\"attr: { id: 'down_' + id }\"></span></center></td>" +
+                "<a data-bind=\"attr: { id: 'up_' + id, href: upVoteHref }, click: $root.checkVoteLink\"><div class=\"votearrow\" title=\"upvote\"></div></a>" +
+                "<span data-bind=\"attr: { id: 'down_' + id }\"></span></center></td>" +
                 "<td class=\"default\"><div style=\"margin-top:2px; margin-bottom:-10px; \"><span class=\"comhead\">" +
                 "<a data-bind=\"text: user, attr: { href: 'user?id=' + user }\"></a> <span data-bind=\"text: ago\"></span> | " +
                 "<a data-bind=\"attr: { href: 'item?id=' + id }\">link</a></span></div>" +
@@ -370,6 +373,16 @@
             }, this);
             var queue = [];
             var newItemIds = ko.observableArray();
+            this.checkVoteLink = function(item, event) {
+                var voteLink = item.upVoteLink();
+                if (voteLink != null) {
+                    // Go ahead and do the up vote.
+                    var target = (event.currentTarget) ? event.currentTarget : event.srcElement;
+                    vote(target);
+                } else {
+                    console.log("Clicked upvote on empty item. Support coming soon.");
+                }
+            };
             this.addQueuedItems = function() {
                 if (refreshHolder() == null) {
                     var viewModel = this;
@@ -397,8 +410,8 @@
                             // upgrading existing item if incoming data is better
 
                             var existingItem = result.existingItem;
-                            if (!existingItem.upVoteLink && item.upVoteLink) {
-                                existingItem.upVoteLink = item.upVoteLink;
+                            if (!existingItem.upVoteLink() && item.upVoteLink()) {
+                                existingItem.upVoteLink(item.upVoteLink);
                             }
                         } else if (item.parentId == undefined || result.hasParent) {
                             // Apply position and indentation only
@@ -509,7 +522,8 @@
                     "viverra eleifend. Ut vel consectetur nunc, sed sodales ipsum. Mauris sed neque ut nunc blandit aliquam. " +
                     "Curabitur in blandit augue, vel luctus lectus.</p>",
 
-                    new Date()
+                    new Date(),
+                    null
                 );
                 if (fn != null) {
                     fn.call(entry);
@@ -570,7 +584,8 @@
                     item['parent-id'],
                     item['author'],
                     item['body'],
-                    readTimeSpan(item['date-string'])
+                    readTimeSpan(item['date-string']),
+                    null
                 );
             });
 

@@ -373,14 +373,38 @@
             }, this);
             var queue = [];
             var newItemIds = ko.observableArray();
-            this.checkVoteLink = function(item, event) {
-                var voteLink = item.upVoteLink();
-                if (voteLink != null) {
-                    // Go ahead and do the up vote.
-                    var target = (event.currentTarget) ? event.currentTarget : event.srcElement;
+            var castVote = function(target) {
+                var href = $(target).attr("href");
+                if (href.indexOf("auth") >= 0) {
+                    // Logged in, cast vote
                     vote(target);
                 } else {
-                    console.log("Clicked upvote on empty item. Support coming soon.");
+                    // Not logged in, send to link target.
+                    window.alert("You must be logged in to cast a vote. You will be taken to a login screen now.");
+                    window.location.href = href;
+                }
+            };
+            this.checkVoteLink = function(item, event) {
+                var voteLink = item.upVoteLink();
+                var target = (event.currentTarget) ? event.currentTarget : event.srcElement;
+                if (voteLink != null) {
+                    // Go ahead and do the up vote.
+                    castVote(target);
+                } else {
+                    // We don't have a link for this one, so
+                    // do a refresh and upgrade the link, then
+                    // do the upvote.  But, we should hide the item
+                    // now so that there is no duplicate click.
+                    $(target).addClass("hidden-vote-arrow");
+                    viewModel.insertItems(true, [], function() {
+                        var voteLink = item.upVoteLink();
+                        if (voteLink == null) {
+                            // This is a rare case where probably the item has been deleted.
+                            console.log("Item refreshed, but still does not carry link ... item may have been deleted.")
+                        } else {
+                            castVote(target);
+                        }
+                    });
                 }
             };
             this.addQueuedItems = function() {
@@ -411,7 +435,7 @@
 
                             var existingItem = result.existingItem;
                             if (!existingItem.upVoteLink() && item.upVoteLink()) {
-                                existingItem.upVoteLink(item.upVoteLink);
+                                existingItem.upVoteLink(item.upVoteLink());
                             }
                         } else if (item.parentId == undefined || result.hasParent) {
                             // Apply position and indentation only
@@ -424,7 +448,13 @@
                     queue = [];
                 }
             };
-            this.insertItems = function(needRefresh, items) {
+            this.insertItems = function(needRefresh, items, next) {
+                // Prepare method to call when everything is done.
+                var callNext = function() {
+                    if (next) {
+                        next();
+                    }
+                };
                 if (needRefresh) {
                     var viewModel = this;
                     refreshHolder($("<div>"));
@@ -432,15 +462,17 @@
                         var tables = findTables(refreshHolder());
                         var outerTable = tables.outerTable;
                         var comments = scrapeTables(outerTable);
-                        // Have to reverse and then unshift
-                        // because we need the entries to end up at the beginning of
-                        // queue but unshift will reverse them :/
+                        // We want to add the items in the comments array to the beginning
+                        // of the queue array.
+                        // To achieve this, we want to reverse the comments array and then
+                        // unshift its entries one by one into the queue array.
                         comments.reverse();
                         $.each(comments, function() {
                             queue.unshift(this);
                         });
                         refreshHolder(null);
                         viewModel.addQueuedItems();
+                        callNext();
                     });
                 }
                 // Enqueue each item
@@ -448,6 +480,9 @@
                     queue.push(this);
                 });
                 this.addQueuedItems();
+                if (!needRefresh) {
+                    callNext();
+                }
             };
 
             this.realtime = ko.observable(false);

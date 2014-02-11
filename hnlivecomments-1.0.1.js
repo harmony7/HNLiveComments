@@ -1,6 +1,6 @@
 // Hacker News Live Comments
 // v1.0.0   2014-02-10 -- Initial version
-// v1.0.1   2014-02-11 -- Support for deleted comments
+// v1.0.1   2014-02-11 -- Support for deleted comments, Better visibility for inserted comments
 
 (function(window) {
 
@@ -107,11 +107,14 @@
                 "tr.hn-hidden-row {" +
                 "display: none;" +
                 "}" +
+                "tr.hn-ready-row {" +
+                "border-spacing: 0;" +
+                "}" +
                 ".hn-comment-holder {" +
                 generateTransitions("height " + transitionTime + ", background-color " + bgTransitionTime) +
                 "}" +
                 ".hn-comment-holder.animating {" +
-                "overflow: hidden;" +
+                "overflow:hidden;" +
                 "}" +
                 ".hn-comment-holder .hidden-vote-arrow {" +
                 "visibility: hidden;" +
@@ -572,13 +575,16 @@
                 var item = newItemIds.shift();
                 var holder = item.holder;
                 var height = item.fullPixelHeight;
-                holder.closest("tr").removeClass("hn-hidden-row").addClass("animating");
                 window.setTimeout(function() {
+                    holder.closest("tr").addClass("hn-ready-row").removeClass("hn-hidden-row");
+                    holder.addClass("animating");
+                    var windowHeight = isNaN(window.innerHeight) ? window.clientHeight : window.innerHeight;
                     $.scrollTo(holder, 800, {
-                        offset: -hnLiveCommentsInfoBar.height(),
+                        offset: -hnLiveCommentsInfoBar.height() - windowHeight / 4,
                         onAfter: function() {
                             holder.css("height", height + "px");
                             holder.css("background-color", "inherit");
+                            holder.closest("tr").removeClass("hn-ready-row");
                         }
                     });
                 }, 0);
@@ -587,7 +593,7 @@
             this.addTestEntry = function(fn) {
                 var entry = buildEntry(
                     new Date().getTime(),
-                    0,
+                    undefined,
                     "test-author",
                     "<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus ut egestas tortor. " +
                     "Quisque fringilla leo vel quam dictum fringilla. Nullam adipiscing elit eget nulla pharetra aliquam. " +

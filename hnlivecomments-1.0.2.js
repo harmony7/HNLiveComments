@@ -1,6 +1,7 @@
 // Hacker News Live Comments
 // v1.0.0   2014-02-10 -- Initial version
 // v1.0.1   2014-02-11 -- Support for deleted comments, Better visibility for inserted comments
+// v1.0.2   2014-02-12 -- Fix for horizontal resizing
 
 (function(window) {
 
@@ -111,9 +112,9 @@
                 "border-spacing: 0;" +
                 "}" +
                 ".hn-comment-holder {" +
-                generateTransitions("height " + transitionTime + ", background-color " + bgTransitionTime) +
                 "}" +
                 ".hn-comment-holder.animating {" +
+                generateTransitions("height " + transitionTime + ", background-color " + bgTransitionTime) +
                 "overflow:hidden;" +
                 "}" +
                 ".hn-comment-holder .hidden-vote-arrow {" +
@@ -585,6 +586,11 @@
                             holder.css("height", height + "px");
                             holder.css("background-color", "inherit");
                             holder.closest("tr").removeClass("hn-ready-row");
+                            window.setTimeout(function(){
+                                holder.removeClass("animating");
+                                holder.css("height", "auto");
+                                holder = null;
+                            }, 1500);
                         }
                     });
                 }, 0);

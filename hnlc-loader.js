@@ -128,7 +128,7 @@
         [appRoot + "jquery.scrollTo-1.4.3.1-min.js"],
         [appRoot + "knockout-3.0.0.js", "ko"],
         [appRoot + "pollymer-1.0.0.js", "Pollymer"],
-        [appRoot + "hnlivecomments-1.0.1.js", "hnlc"]
+        [appRoot + "hnlivecomments-1.0.2.js", "hnlc"]
     ], function(ctx) {
         cleanUp();
         ctx.hnlc.main(loader, ctx.$, ctx.ko, ctx.Pollymer);

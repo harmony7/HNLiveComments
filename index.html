@@ -2,17 +2,93 @@
 <html>
 <head>
     <title>HackerNews Live Comments Bookmarklet</title>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap.min.css">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap-theme.min.css">
+
 </head>
 <body>
-<div>
-    Drag the following link to your bookmarks bar in your browser.
+<div class="navbar navbar-default navbar-static-top">
+    <div class="container">
+        <div class="navbar-header">
+            <a class="navbar-brand" href="/">[ <span class="text-primary">pex2.jp</span> ]</a>
+        </div>
+    </div>
 </div>
-<div>
-    <a href="javascript:(function(w,d,ard,arp,g,m,u){var a=arp;if(m in w){window.alert(w[m]);return;}var b=d.body;w[g]=a;var js=d.createElement('script');js.setAttribute('src',w[g]+'hnlc-loader.js');b.appendChild(js);var c=d.createElement('div');c.id='hn-cover';c.innerHTML='Preparing ...';c.setAttribute('style','position:fixed;text-align:center;color:black;background:#54B0DF;padding:0;right:0px;top:0px;');b.appendChild(c);})(window,document,'//localhost:63342/HNLiveComments/','//hnlivecomments.pex2.jp/','AC37E99A-3A9A-44EF-A901-20285DEB1ECE','FF7BA78F-E740-4C15-BB74-53B6B4E7308F');">HNLiveComments</a>
+<div class="container">
+    <h1>HNLiveComments</h1>
+
+    <p>
+        Author: Katsuyuki Ohmuro <a href="mailto:harmony7@pex2.jp">harmony7@pex2.jp</a>
+    </p>
+
+    <p>
+        <a href="https://news.ycombinator.com/news">Hacker News</a> is a great source of information, but one of its problems is its static nature.
+        Here's a bookmarklet that lets you see newly posted comments on Hacker News without having to refresh the page.
+        It uses <a href="http://hnstream.com/">HNStream</a> (made by Justin of <a href="http://fanout.io/">Fanout.io</a>) to obtain the live data,
+        and it fiddles with the page DOM to display new comments in a way that very closely matches HN's look.
+    </p>
+
+    <p>
+        To use it, drag the following link into your bookmarks toolbar:
+    </p>
+    <p>
+        <!-- Change the "var a=arp" to "var a=ard" if you want to work on this using your local WebStorm dev server -->
+        <a href="javascript:(function(w,d,ard,arp,g,m,u){var a=arp;if(m in w){window.alert(w[m]);return;}var b=d.body;w[g]=a;var js=d.createElement('script');js.setAttribute('src',w[g]+'hnlc-loader.js');b.appendChild(js);var c=d.createElement('div');c.id='hn-cover';c.innerHTML='Preparing ...';c.setAttribute('style','position:fixed;text-align:center;color:black;background:#54B0DF;padding:0;right:0px;top:0px;');b.appendChild(c);})(window,document,'//localhost:63342/HNLiveComments/','//hnlivecomments.pex2.jp/','AC37E99A-3A9A-44EF-A901-20285DEB1ECE','FF7BA78F-E740-4C15-BB74-53B6B4E7308F');">HNLiveComments</a>
+    </p>
+
+    <p>
+        For example:
+    </p>
+    <p>
+        <img src="bookmarklet-howto.png" />
+    </p>
+
+    <p>
+        Then whenever you've got an HN comment thread open, activate the bookmarklet and enjoy live comments.  You'll be notified by a flashing button
+        at the top-right corner of your browser window, as well as a number that appears in the browser tab title.
+    </p>
+    <p>
+        <img src="hnlivecomments-ss.png" />
+    </p>
+
+    <p>
+        Now you can leave HN pages open and easily see when new comments are posted, without having to refresh constantly.
+    </p>
+
+    <p>
+        Please note that HNStream tends to run about 1-2 minutes behind, which Justin says is due to access limitations of Hacker News itself.
+        This doesn't impact the user experience too much, but it's worth knowing about in case you wonder why you don't instantly see your
+        own posts. Fortunately if HNStream manages to reduce its latency someday, it will automatically be reflected in the bookmarklet.
+    </p>
+
+    <p>
+        The project is on <a href="https://github.com/harmony7/HNLiveComments">Github</a>. Please report any bugs using the issue tracker there.
+    </p>
+
+    <ul>
+        <div>
+            Links:
+        </div>
+        <li>
+            <a href="https://news.ycombinator.com/news">Hacker News</a>
+        </li>
+        <li>
+            <a href="https://news.ycombinator.com/newest">(Newest)</a>
+        </li>
+        <li>
+            <a href="https://news.ycombinator.com/newcomments">(New Comments)</a>
+        </li>
+    </ul>
+
+    <p>
+        &copy; Copyright Katsuyuki Ohmuro 2014
+    </p>
 </div>
-<div>
-    <a href="https://news.ycombinator.com/news">Hacker News</a> <a href="https://news.ycombinator.com/newest">(Newest)</a> <a href="https://news.ycombinator.com/newcomments">(New Comments)</a>
-</div>
+<!-- Latest compiled and minified JavaScript -->
+<script src="//netdna.bootstrapcdn.com/bootstrap/3.1.0/js/bootstrap.min.js"></script>
 </body>
 </html>
 

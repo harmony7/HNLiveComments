@@ -667,6 +667,9 @@
             outerTable.remove();
             outerTable = null;
 
+            // Set time NOW.
+            now(new Date());
+
             viewModel.comments.valueWillMutate();
             $.each(comments, function() {
                 viewModel.comments().push(this);

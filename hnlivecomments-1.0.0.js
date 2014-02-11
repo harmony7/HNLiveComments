@@ -1,3 +1,7 @@
+// Hacker News Live Comments
+// v1.0.0   2014-02-10 -- Initial version
+// v1.0.1   2014-02-11 -- Support for deleted comments
+
 (function(window) {
 
     // -- Utility functions --
@@ -104,8 +108,10 @@
                 "display: none;" +
                 "}" +
                 ".hn-comment-holder {" +
-                "overflow: hidden;" +
                 generateTransitions("height " + transitionTime + ", background-color " + bgTransitionTime) +
+                "}" +
+                ".hn-comment-holder.animating {" +
+                "overflow: hidden;" +
                 "}" +
                 ".hn-comment-holder .hidden-vote-arrow {" +
                 "visibility: hidden;" +
@@ -191,6 +197,10 @@
             var userElement = $(tableElement).find("a[href^='user?id=']").first();
             var user = userElement.length > 0 ? userElement.attr("href").substring(8) : "";
 
+            var scoreElement = $(tableElement).find("span[id^='score_']").first();
+            var score = scoreElement.length > 0 ? parseInt(userElement.text(), 10) : 0;
+            var selfComment = scoreElement.length > 0;
+
             var dateElements = $(tableElement).find(".comhead").contents().filter(function() {
                 return this.nodeType == 3;
             }).map(function() {
@@ -245,6 +255,8 @@
             var time = readTimeSpan(dateString);
 
             var entry = buildEntry(id, 0, user, comment, time, upVoteLink);
+            entry.selfComment = selfComment;
+            entry.score = score;
 
             return entry;
         };
@@ -261,7 +273,8 @@
                 var spacer = $(element);
                 var width = parseInt(spacer.attr("width"));
                 if (width % 40 != 0) {
-                    // Self comments have an extra s.gif whose width is 14.
+                    // Self comments and deleted comments have an
+                    // extra s.gif whose width is 14.
                     // Filter out such extraneous uses of s.gif
                     return;
                 }
@@ -300,7 +313,8 @@
 
             return {
                 outerTable: outerTable,
-                postIdNode: postIdNode
+                postIdNode: postIdNode,
+                noreply: opTable.find("[name=fnid]").length == 0
             };
         };
 
@@ -319,6 +333,8 @@
         var initialCount = postIdNode.text();
         postIdNode.attr("data-bind", "text: numCommentsString");
 
+        var noreply = tables.noreply;
+
         var outerTable = tables.outerTable;
 
         $(
@@ -330,13 +346,38 @@
                 "<td>" +
                 "<img src=\"s.gif\" height=\"1\" data-bind=\"attr: { width: indent * 40 }\"></td>" +
                 "<td valign=\"top\"><center>" +
+                "<!-- ko if: selfComment -->" + // If self comment
+                "<font color=\"#ff6600\">*</font><br>" +
+                "<img src=\"s.gif\" height=\"1\" width=\"14\">" +
+                "<!-- /ko -->" +
+                "<!-- ko if: !selfComment -->" + // If not self comment
+                "<!-- ko if: id != 0 -->" + // If not deleted
                 "<a data-bind=\"attr: { id: 'up_' + id, href: upVoteHref }, click: $root.checkVoteLink\"><div class=\"votearrow\" title=\"upvote\"></div></a>" +
-                "<span data-bind=\"attr: { id: 'down_' + id }\"></span></center></td>" +
+                "<span data-bind=\"attr: { id: 'down_' + id }\"></span>" +
+                "<!-- /ko -->" +
+                "<!-- ko if: id == 0 -->" + // If deleted
+                "<img src=\"s.gif\" height=\"1\" width=\"14\">" +
+                "<!-- /ko -->" +
+                "<!-- /ko -->" +
+                "</center></td>" +
                 "<td class=\"default\"><div style=\"margin-top:2px; margin-bottom:-10px; \"><span class=\"comhead\">" +
+                "<!-- ko if: id != 0 -->" + // If not deleted
                 "<a data-bind=\"text: user, attr: { href: 'user?id=' + user }\"></a> <span data-bind=\"text: ago\"></span> | " +
-                "<a data-bind=\"attr: { href: 'item?id=' + id }\">link</a></span></div>" +
+                "<a data-bind=\"attr: { href: 'item?id=' + id }\">link</a>" +
+                "<!-- /ko -->" +
+                "</span></div>" +
+                "<!-- ko if: id != 0 -->" + // If not deleted
                 "<br><span style=\"color: #000000\" class=\"comment\" data-bind=\"html: comment\"></span>" +
+                "<!-- ko if: $root.noreply -->" +
+                "<p><font size=\"1\"><font color=\"#f6f6ef\">-----</font></font></p>" +
+                "<!-- /ko -->" +
+                "<!-- ko if: !$root.noreply -->" +
                 "<p><font size=\"1\"><u><a data-bind=\"attr: { href: 'reply?id=' + id }\">reply</a></u></font></p>" +
+                "<!-- /ko -->" +
+                "<!-- /ko -->" +
+                "<!-- ko if: id == 0 -->" + // If deleted
+                "<span class=\"comment\">[deleted]</span>" +
+                "<!-- /ko -->" +
                 "</td>" +
                 "</tr></tbody></table>" +
                 "</div>" +
@@ -523,7 +564,7 @@
                 var item = newItemIds.shift();
                 var holder = item.holder;
                 var height = item.fullPixelHeight;
-                holder.closest("tr").removeClass("hn-hidden-row");
+                holder.closest("tr").removeClass("hn-hidden-row").addClass("animating");
                 window.setTimeout(function() {
                     $.scrollTo(holder, 800, {
                         offset: -hnLiveCommentsInfoBar.height(),
@@ -581,6 +622,8 @@
                     }
                 });
             };
+
+            this.noreply = noreply;
         };
 
         // Create view model, passing in the ID and comments

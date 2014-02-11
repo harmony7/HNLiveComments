@@ -173,7 +173,7 @@
                 comment: comment,
                 time: ko.observable(time),
                 upVoteLink: ko.observable(upVoteLink),
-                score: 0,
+                score: "",
                 selfComment: false,
                 indent: 0
             };
@@ -198,7 +198,7 @@
             var user = userElement.length > 0 ? userElement.attr("href").substring(8) : "";
 
             var scoreElement = $(tableElement).find("span[id^='score_']").first();
-            var score = scoreElement.length > 0 ? parseInt(userElement.text(), 10) : 0;
+            var score = scoreElement.length > 0 ? parseInt(scoreElement.text(), 10) : 0;
             var selfComment = scoreElement.length > 0;
 
             var dateElements = $(tableElement).find(".comhead").contents().filter(function() {
@@ -206,6 +206,11 @@
             }).map(function() {
                 return this.textContent;
             });
+
+            // If "self" comment then there is this weird "by" text element that throws this off.
+            if (selfComment) {
+                dateElements = dateElements.slice(1);
+            }
 
             var dateString = dateElements.length >= 1 ? dateElements[0] : "1 minute";
 
@@ -256,7 +261,7 @@
 
             var entry = buildEntry(id, 0, user, comment, time, upVoteLink);
             entry.selfComment = selfComment;
-            entry.score = score;
+            entry.score = score + " point" + (score != 1 ? "s" : "");
 
             return entry;
         };
@@ -361,6 +366,9 @@
                 "<!-- /ko -->" +
                 "</center></td>" +
                 "<td class=\"default\"><div style=\"margin-top:2px; margin-bottom:-10px; \"><span class=\"comhead\">" +
+                "<!-- ko if: selfComment -->" + // If self comment
+                "<span data-bind=\"attr: { id: 'score_' + id }, text: score\"></span> by " +
+                "<!-- /ko -->" +
                 "<!-- ko if: id != 0 -->" + // If not deleted
                 "<a data-bind=\"text: user, attr: { href: 'user?id=' + user }\"></a> <span data-bind=\"text: ago\"></span> | " +
                 "<a data-bind=\"attr: { href: 'item?id=' + id }\">link</a>" +
